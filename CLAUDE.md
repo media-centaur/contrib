@@ -2,6 +2,14 @@
 
 This repository (`freedia-center/specifications`) is the **authoritative source** for all cross-component specifications in the Freedia Center project. Every component repository references these documents.
 
+## Data Model Foundation
+
+All entity data in this project is grounded in [schema.org](https://schema.org) vocabulary, serialised as [JSON-LD](https://json-ld.org/). This is the most important design constraint in the system.
+
+Entity field names (`name`, `datePublished`, `contentUrl`, `containsSeason`, `episodeNumber`, etc.) are **schema.org property names** — not arbitrary identifiers. Entity types (`Movie`, `TVSeries`, `VideoGame`, `ImageObject`, `PropertyValue`, etc.) are **schema.org classes**. Before adding any new field or type, check schema.org for an existing match and use its canonical name.
+
+Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
+
 ## Documents
 
 | File | Contents |
