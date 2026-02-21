@@ -75,6 +75,65 @@ Additional fields:
 | `duration` | `string` | ISO 8601 duration (`"PT2H44M"`) |
 | `contentRating` | `string` | MPAA rating: `"G"`, `"PG"`, `"PG-13"`, `"R"`, `"NC-17"` |
 
+#### MovieSeries — `schema.org/MovieSeries`
+
+A collection of related movies (e.g. "The Lord of the Rings", "John Wick"). Standalone movies remain top-level `Movie` entities; movies that belong to a series are always nested inside a `MovieSeries` entity via the `hasPart` property.
+
+Additional fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `director` | `string` | Series-level director (optional; individual movies may differ) |
+| `hasPart` | `Movie[]` | Embedded ordered list of movies in the series |
+
+Child `Movie` objects inside `hasPart` use the same fields as standalone `Movie` entities. They are sorted by `datePublished` at display time in the UI.
+
+Example:
+
+```json
+{
+  "@id": "550e8400-e29b-41d4-a716-446655440020",
+  "entity": {
+    "@type": "MovieSeries",
+    "name": "The Lord of the Rings",
+    "description": "Peter Jackson's epic fantasy trilogy.",
+    "datePublished": "2001",
+    "genre": ["Fantasy", "Adventure"],
+    "director": "Peter Jackson",
+    "image": [
+      {
+        "@type": "ImageObject",
+        "name": "poster",
+        "url": "https://image.tmdb.org/t/p/original/...",
+        "contentUrl": "images/550e8400-e29b-41d4-a716-446655440020/poster.jpg"
+      }
+    ],
+    "aggregateRating": { "ratingValue": 8.9 },
+    "url": "https://www.themoviedb.org/collection/119",
+    "hasPart": [
+      {
+        "@type": "Movie",
+        "name": "The Fellowship of the Ring",
+        "datePublished": "2001",
+        "director": "Peter Jackson",
+        "duration": "PT2H58M",
+        "contentRating": "PG-13",
+        "description": "A meek Hobbit sets out on a journey...",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "name": "poster",
+            "contentUrl": "images/550e8400-e29b-41d4-a716-446655440020/fellowship-poster.jpg"
+          }
+        ],
+        "aggregateRating": { "ratingValue": 8.8 },
+        "contentUrl": "/media/movies/LOTR/fellowship.mkv"
+      }
+    ]
+  }
+}
+```
+
 #### VideoGame — `schema.org/VideoGame`
 
 Additional fields:
@@ -291,6 +350,9 @@ Actions are grouped by `@type` and define shell commands with placeholder variab
     ],
     "TVSeries": [
       { "name": "Play Episode", "command": "mpv '{contentUrl}'" }
+    ],
+    "MovieSeries": [
+      { "name": "Info (TMDB)", "command": "xdg-open '{url}'" }
     ]
   }
 }
