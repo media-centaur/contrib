@@ -33,11 +33,11 @@ A Rust/GPUI native desktop application. Designed for fullscreen 10-foot UI with 
 - Manage entity metadata
 
 **Files it reads:**
-- `{shared_library_dir}/media.json` — media library (format: `DATA-FORMAT.md`). Default: `~/.local/share/freedia-center/data/media.json`.
-- `{shared_library_dir}/images/{uuid}/{role}.{ext}` — cached artwork (format: `IMAGE-CACHING.md`)
+- `{shared_media_library}` — media library JSON file (format: `DATA-FORMAT.md`). Default: `~/.local/share/freedia-center/media.json`.
+- `{media_images_dir}/{uuid}/{role}.{ext}` — cached artwork (format: `IMAGE-CACHING.md`). Default: `~/.local/share/freedia-center/images/`.
 - `~/.config/freedia-center/user-interface.json` — keybindings and action templates
 
-`shared_library_dir` is set via the `shared_library_dir` config field or the `--shared-library-dir` CLI flag, and must match the path configured in `media-manager`.
+`shared_media_library` and `media_images_dir` are set via config fields or CLI flags, and must match the paths configured in `media-manager`.
 
 **Technology:**
 - Language: Rust
@@ -64,17 +64,19 @@ A Phoenix/Elixir web application that is the **write-side** of Freedia Center. I
 **SQLite is the canonical database.** All entity data (names, descriptions, genres, TMDB IDs, image remote URLs, season/episode structure) is stored in SQLite. `media.json` is a *generated export* of SQLite data — it can always be regenerated from SQLite at any time. This means:
 
 - `media.json` corrupted or deleted → regenerate from SQLite instantly
-- `shared_library_dir` temporarily unavailable → app continues with SQLite; writes queue and resume on reconnect
+- Output paths temporarily unavailable → app continues with SQLite; writes queue and resume on reconnect
 - Images lost → remote `url` stored in SQLite → re-download on demand
+
+**Processing pipeline:** A Broadway pipeline automatically processes new files through detection → TMDB search → metadata fetch. The Watcher detects files and writes to the database; a Broadway producer polls for new detections every 10 seconds and feeds them to concurrent processors (3 by default). High-confidence TMDB matches are auto-approved and progress through the full pipeline. Low-confidence matches stop at `:pending_review` for human approval in the admin UI. See `media-manager/PIPELINE.md` for full details.
 
 **Responsibilities:**
 - Watch `media_dir` for new video files (torrent download completions)
 - Parse filenames to extract title, year, and media type
-- Search TMDB and compute a confidence score for the best match
+- Automatically search TMDB and compute a confidence score for the best match
 - Auto-approve high-confidence matches; queue low-confidence matches for human review via the admin UI
 - Fetch full metadata from TMDB (details, cast, seasons, episodes)
-- Download and cache artwork images into `shared_library_dir/images/{uuid}/`
-- Maintain `media.json` in `shared_library_dir` — the integration point with the user-interface
+- Download and cache artwork images into `{media_images_dir}/{uuid}/`
+- Maintain `media.json` at `shared_media_library` — the integration point with the user-interface
 - Store remote image URLs (`ImageObject.url`) and local paths (`ImageObject.contentUrl`) in SQLite for re-download resilience
 - Maintain UUID stability — never change an entity's `@id` once assigned
 - Handle mount resilience: never remove library entries due to a transient `media_dir` unmount
@@ -93,7 +95,8 @@ Reads `~/.config/freedia-center/media-manager.toml` at startup. Key settings:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `media_dir` | `/mnt/videos/Videos` | Video files directory (watched for additions/removals) |
-| `shared_library_dir` | `~/.local/share/freedia-center/data` | Shared data directory (must match user-interface config) |
+| `shared_media_library` | `~/.local/share/freedia-center/media.json` | Path to the media library JSON file (must match user-interface config) |
+| `media_images_dir` | `~/.local/share/freedia-center/images` | Directory for cached artwork images (must match user-interface config) |
 | `tmdb.api_key` | `""` | TMDB API key |
 | `pipeline.auto_approve_threshold` | `0.85` | Confidence threshold for auto-approval |
 
@@ -109,12 +112,17 @@ Reads `~/.config/freedia-center/media-manager.toml` at startup. Key settings:
 
 ---
 
-## Shared Data Directory
+## Shared Data Paths
 
-Both components operate on a **shared data directory**. The default is `~/.local/share/freedia-center/data`; configured independently in each component.
+Both components share two configurable paths. Defaults place them under `~/.local/share/freedia-center/`; each component configures them independently.
+
+| Path | Default | Purpose |
+|------|---------|---------|
+| `shared_media_library` | `~/.local/share/freedia-center/media.json` | Media library JSON file — written by manager, read by user-interface |
+| `media_images_dir` | `~/.local/share/freedia-center/images` | Cached artwork images — one subdirectory per entity UUID |
 
 ```
-data/
+~/.local/share/freedia-center/
 ├── media.json              # Written by manager, read by user-interface
 └── images/
     ├── {uuid}/             # One directory per entity @id
@@ -124,7 +132,7 @@ data/
     └── ...
 ```
 
-The data directory is the **only integration point** between components. Format details are in `DATA-FORMAT.md` and `IMAGE-CACHING.md`.
+These shared paths are the **only integration point** between components. Format details are in `DATA-FORMAT.md` and `IMAGE-CACHING.md`.
 
 ---
 

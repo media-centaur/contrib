@@ -90,8 +90,8 @@ Additional fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `numberOfSeasons` | `integer` | Total season count |
-| `containsSeason` | `TVSeason[]` | Embedded ordered list of seasons |
+| `numberOfSeasons` | `integer` | Total season count (from TMDB; may exceed the number of seasons with scanned files) |
+| `containsSeason` | `TVSeason[]` | Embedded ordered list of seasons — **only includes seasons/episodes with scanned video files**, not all seasons from TMDB |
 
 **TVSeason** (embedded; not a top-level wrapper entity):
 
@@ -143,7 +143,7 @@ Used in `image` arrays on all entity types and in TVEpisode.
 | `@type` | `"ImageObject"` | Always `"ImageObject"` |
 | `name` | `string` | Image role: `"poster"`, `"backdrop"`, `"logo"`, `"thumb"` |
 | `url` | `string` | Remote source URL — written by manager app, not read by UI |
-| `contentUrl` | `string` | Local path relative to the data directory — read by UI |
+| `contentUrl` | `string` or `null` | Local path relative to the data directory — read by UI. `null` while the image download is pending. |
 
 See [`IMAGE-CACHING.md`](IMAGE-CACHING.md) for directory conventions and role definitions.
 

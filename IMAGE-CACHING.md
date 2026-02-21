@@ -7,7 +7,7 @@ This document specifies how artwork images are stored, referenced, and loaded in
 ## Design Principles
 
 - **One copy per role, GPU scales.** Store a single high-quality image per role (poster, backdrop, logo). Never store multiple resolutions. GPUI renders via Vulkan — GPU texture scaling is free.
-- **Remote URL + local path separation.** Each image record stores both the original remote URL and the local cached path. The manager app writes both; the user-interface reads only the local path.
+- **Remote URL + local path separation.** Each image record stores both the original remote URL and the local cached path. The manager app writes `url` during metadata fetch and `contentUrl` after the file is downloaded; the user-interface reads only the local path.
 - **Always use an array.** `image` is always `ImageObject[]`, even when there is one image. This avoids a schema migration when additional roles are added.
 - **UUID-keyed directories.** Each entity's images live under `data/images/{entity-@id}/`. The entity `@id` is the sole key — no name-based paths.
 
@@ -31,7 +31,7 @@ Each entry in an entity's `image` array is a schema.org `ImageObject`:
 | `@type` | `"ImageObject"` | manager | — | Always `"ImageObject"` |
 | `name` | `string` | manager | UI | Image role (see roles below) |
 | `url` | `string` | manager | manager | Canonical remote source URL |
-| `contentUrl` | `string` | manager | UI | Local path relative to data directory |
+| `contentUrl` | `string` or `null` | manager | UI | Local path relative to data directory — `null` until download completes |
 
 The `contentUrl` path is always relative to the data directory root (e.g. `images/{uuid}/poster.jpg`, not an absolute path).
 
@@ -110,8 +110,9 @@ The manager app uses these patterns when downloading images:
 ### Manager App
 
 - Query external APIs to get image URLs
+- Create `ImageObject` entries with `url` populated (remote TMDB URL) and `contentUrl: null`
 - Download images to `data/images/{uuid}/{role}.{ext}`
-- Write `ImageObject` entries into the entity's `image` array with both `url` and `contentUrl` populated
+- Update `contentUrl` in the `ImageObject` entry with the local path after successful download
 - Never overwrite a locally modified image without user confirmation
 
 ### User-Interface App
