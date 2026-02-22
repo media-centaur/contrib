@@ -25,8 +25,6 @@ Tests are organized by domain, mirroring the application's module structure. Eac
 | `test/media_manager/library/watched_file_test.exs` | WatchedFile detection, search, metadata fetch |
 | `test/media_manager/library/watch_progress_test.exs` | WatchProgress upsert, auto-completion, idempotency |
 | `test/media_manager/serializer_test.exs` | Serializer output shape, DATA-FORMAT.md compliance, MovieSeries handling |
-| `test/media_manager/json_writer_test.exs` | JsonWriter file output contract |
-| `test/media_manager/config_test.exs` | Config boolean merge, TOML parsing edge cases |
 | `test/media_manager_web/channels/library_channel_test.exs` | Library channel join reply shape, entity push shapes, JSON string keys |
 | `test/media_manager_web/channels/playback_channel_test.exs` | Playback channel join reply shape, PubSub push shapes, JSON string keys |
 
@@ -65,7 +63,7 @@ npm install -g wscat
 
 **Connect:**
 ```bash
-wscat -c ws://localhost:4000/socket/websocket
+wscat -c 'ws://localhost:4000/socket/websocket?vsn=2.0.0'
 ```
 
 **Join the library channel:**
@@ -134,7 +132,7 @@ cd user-interface
 cargo run
 ```
 
-The UI starts and attempts to connect to the backend. When the backend is unavailable, the UI displays a "Backend unavailable" connection status and retries with exponential backoff (1s, 2s, 4s, ... up to 30s).
+The UI starts with an empty library and attempts to connect to the backend. When the backend is unavailable, the UI displays a "Backend unavailable" connection status and retries with exponential backoff (1s, 2s, 4s, ... up to 30s). There is no file-based fallback — the library populates only after a successful WebSocket connection and `library` channel join.
 
 ---
 

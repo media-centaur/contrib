@@ -43,73 +43,64 @@ None for v1 — the backend runs locally and serves a single household. Authenti
 
 **Topic:** `library`
 
-On join, the backend sends the full library state. No parameters required.
+On join, the backend returns an empty reply and begins streaming the library as a series of `library:entities` batches, followed by a `library:sync_complete` signal. No parameters required.
 
 **Reply:**
 
 ```json
 {
   "status": "ok",
-  "response": {
-    "entities": [
-      {
-        "@id": "550e8400-...",
-        "entity": { "@type": "Movie", "name": "Blade Runner 2049", ... },
-        "progress": null
-      },
-      {
-        "@id": "660f9500-...",
-        "entity": { "@type": "TVSeries", "name": "Severance", ... },
-        "progress": {
-          "current_episode": { "season": 2, "episode": 3 },
-          "episode_position_seconds": 1200.5,
-          "episode_duration_seconds": 3200.0,
-          "episodes_completed": 12,
-          "episodes_total": 20
-        }
+  "response": {}
+}
+```
+
+After the reply, the backend pushes the full library in batches (see `library:entities` below), then pushes `library:sync_complete` to signal the initial sync is done. The UI should accumulate entities from each batch and consider the library fully loaded once `library:sync_complete` arrives.
+
+### Server Push: `library:entities`
+
+A batch of entity payloads with upsert semantics. Used for both initial sync batches and incremental updates from the pipeline.
+
+```json
+{
+  "entities": [
+    {
+      "@id": "550e8400-...",
+      "entity": { "@type": "Movie", "name": "Blade Runner 2049", ... },
+      "progress": null
+    },
+    {
+      "@id": "660f9500-...",
+      "entity": { "@type": "TVSeries", "name": "Severance", ... },
+      "progress": {
+        "current_episode": { "season": 2, "episode": 3 },
+        "episode_position_seconds": 1200.5,
+        "episode_duration_seconds": 3200.0,
+        "episodes_completed": 12,
+        "episodes_total": 20
       }
-    ]
-  }
+    }
+  ]
 }
 ```
 
-Each entity in the `entities` array follows the same wrapper format as `media.json` (`DATA-FORMAT.md`), with an added `progress` field containing aggregated watch progress for that entity (or `null` if no progress exists).
+Each entity in the `entities` array follows the wrapper format defined in `DATA-FORMAT.md` (`{@id, entity}`), with an added `progress` field containing aggregated watch progress for that entity (or `null` if no progress exists). The UI replaces its local copy of each entity entirely (upsert).
 
-### Server Push: `library:entity_added`
+### Server Push: `library:sync_complete`
 
-Sent when a new entity is added to the library (pipeline completion).
+Signals the initial library sync is done. Sent exactly once after join, after all initial `library:entities` batches. Never sent during incremental updates.
+
+```json
+{}
+```
+
+### Server Push: `library:entities_removed`
+
+Sent when entities are removed from the library. Contains a batch of removed entity IDs.
 
 ```json
 {
-  "@id": "770a1600-...",
-  "entity": { "@type": "Movie", "name": "Dune: Part Two", ... },
-  "progress": null
+  "ids": ["550e8400-..."]
 }
-```
-
-### Server Push: `library:entity_updated`
-
-Sent when entity metadata changes (re-scrape, image download complete, etc.).
-
-```json
-{
-  "@id": "550e8400-...",
-  "entity": { "@type": "Movie", "name": "Blade Runner 2049", ... },
-  "progress": null
-}
-```
-
-The full entity is sent — the UI replaces its local copy entirely.
-
-### Server Push: `library:entity_removed`
-
-Sent when an entity is removed from the library.
-
-```json
-{
-  "@id": "550e8400-..."
-}
-```
 
 ---
 
@@ -328,7 +319,10 @@ All client messages receive a reply with `status: "ok"` or `status: "error"`. Er
 
 ```
 UI → Backend:  join "library"
-Backend → UI:  reply with full entity list + progress summaries
+Backend → UI:  reply {}
+Backend → UI:  push "library:entities" {entities: [...batch 1...]}
+Backend → UI:  push "library:entities" {entities: [...batch 2...]}
+Backend → UI:  push "library:sync_complete" {}
 
 UI → Backend:  join "playback"
 Backend → UI:  reply with state: "idle"
@@ -351,5 +345,8 @@ Backend → UI:       push "playback:entity_progress_updated" {...}      (progre
 
 ```
 Backend pipeline completes processing a new movie:
-Backend → UI:       push "library:entity_added" {entity + progress}
+Backend → UI:       push "library:entities" {entities: [{entity + progress}]}
+
+Entity deleted:
+Backend → UI:       push "library:entities_removed" {ids: ["uuid-1"]}
 ```

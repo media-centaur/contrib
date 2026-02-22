@@ -17,7 +17,7 @@ Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 | [`COMPONENTS.md`](COMPONENTS.md) | System architecture: backend, UI client, WebSocket communication |
 | [`API.md`](API.md) | Phoenix Channels WebSocket API: topics, messages, schemas |
 | [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for `media.json` (legacy) and `config.json` |
+| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
 
 ## Related Repositories
@@ -31,6 +31,6 @@ Component repositories are sibling directories locally and part of the [freedia-
 
 ## How to Use These Specs
 
-- **Reading:** Use these documents to understand data contracts before touching any code that reads or writes `media.json`, `config.json`, or `data/images/`.
+- **Reading:** Use these documents to understand data contracts before touching any code that reads or writes entity data (channel messages), `config.json`, or `data/images/`.
 - **Writing:** When a format decision changes, update the relevant spec here first, then update any affected component code and its `CLAUDE.md`.
 - **Cross-references:** Specs reference each other by filename (e.g. `DATA-FORMAT.md` links to `IMAGE-CACHING.md`). Component `CLAUDE.md` files link here by GitHub URL.

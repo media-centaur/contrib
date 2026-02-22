@@ -64,17 +64,21 @@ The `contentUrl` path is always relative to the data directory root (e.g. `image
 ```
 data/
 └── images/
-    ├── 550e8400-e29b-41d4-a716-446655440001/   # Blade Runner 2049
+    ├── 550e8400-e29b-41d4-a716-446655440001/   # Blade Runner 2049 (entity)
     │   ├── poster.jpg
     │   └── backdrop.jpg
-    ├── 550e8400-e29b-41d4-a716-446655440004/   # Elden Ring
+    ├── 550e8400-e29b-41d4-a716-446655440004/   # Elden Ring (entity)
     │   └── poster.jpg
+    ├── 660a1200-b33c-42e5-b819-557766550010/   # Child Movie (movie)
+    │   └── poster.jpg
+    ├── 770b2300-c44d-53f6-c920-668877660020/   # S01E03 (episode)
+    │   └── thumb.jpg
     └── ...
 ```
 
-- One subdirectory per entity, named by the entity's `@id` UUID.
+- One subdirectory per owner (entity, child movie, or episode), named by the owner's UUID.
 - Filename is `{role}.{ext}` — extension matches the source format (`.jpg` or `.png`).
-- `contentUrl` in `media.json` must match the actual file path exactly.
+- `contentUrl` in entity data (channel messages) must match the actual file path exactly.
 
 ---
 

@@ -9,5 +9,5 @@ Cross-component specifications for the Freedia Center project. All components in
 | [`COMPONENTS.md`](COMPONENTS.md) | System architecture: backend, UI client, WebSocket communication |
 | [`API.md`](API.md) | Phoenix Channels WebSocket API: topics, messages, schemas |
 | [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for `media.json` (legacy) and `config.json` |
+| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |

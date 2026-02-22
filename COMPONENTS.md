@@ -2,8 +2,6 @@
 
 Freedia Center is built from two primary components: a **backend** (Elixir/Phoenix) that owns all data and playback logic, and a **user-interface** (Rust/GPUI) that acts as a thin rendering client. They communicate over a **WebSocket connection** using Phoenix Channels.
 
-> **Migration note:** The system previously used `media.json` on the file system as the sole integration point between components. This is being phased out in favour of the real-time WebSocket API. During the transition, `media.json` generation continues as a fallback but is no longer the primary data path.
-
 ---
 
 ## Component Overview
@@ -68,14 +66,14 @@ A Rust/GPUI native desktop application designed for fullscreen 10-foot UI with r
 
 ### Does NOT
 
-- Write to `media.json` or `images/`
+- Write to `images/`
 - Launch MPV or any playback process directly
 - Track watch progress or implement resume logic
 - Call external APIs (TMDB, Steam, etc.)
 
 ### Backend Required
 
-The UI requires a running backend. If the backend is unavailable, the UI shows a connection status screen and retries. There is no offline mode or file-based fallback — this simplifies the architecture to a single data path and single source of truth.
+The UI requires a running backend. If the backend is unavailable, the UI starts with an empty library and shows a connection status screen until the backend connects. There is no offline mode or file-based fallback — the backend is the single source of truth.
 
 ### Technology
 
@@ -90,7 +88,7 @@ The UI requires a running backend. If the backend is unavailable, the UI shows a
 
 ## Communication: Phoenix Channels (WebSocket)
 
-The UI and backend communicate over a single WebSocket connection using the Phoenix Channels protocol. This replaces `media.json` as the data delivery mechanism.
+The UI and backend communicate over a single WebSocket connection using the Phoenix Channels protocol.
 
 ### Why Phoenix Channels
 
@@ -112,16 +110,14 @@ See [`API.md`](API.md) for the full message schema and channel specification.
 
 ## Shared Data Paths
 
-Both components still share two configurable paths for **images** (which are served as files, not over the WebSocket) and the legacy `media.json` export.
+Both components share a configurable path for **images** (served as files, not over the WebSocket).
 
 | Path | Default | Purpose |
 |------|---------|---------|
-| `shared_media_library` | `~/.local/share/freedia-center/media.json` | Legacy media library JSON file — still generated during transition |
 | `media_images_dir` | `~/.local/share/freedia-center/images` | Cached artwork images — one subdirectory per entity UUID |
 
 ```
 ~/.local/share/freedia-center/
-├── media.json              # Legacy; generated from SQLite, phased out over time
 └── images/
     ├── {uuid}/             # One directory per entity @id
     │   ├── poster.jpg
@@ -154,10 +150,6 @@ See [`API.md`](API.md) for the complete specification.
 
 See [`IMAGE-CACHING.md`](IMAGE-CACHING.md) for directory conventions and role definitions.
 
-### Legacy: media.json (being phased out)
-
-During the transition period, the backend continues to generate `media.json` at `shared_media_library`. This allows the UI to fall back to file-based loading if needed. Once the UI is fully on the WebSocket API, `media.json` generation will be removed.
-
 ---
 
 ## Testing
@@ -179,6 +171,6 @@ See [`TESTING.md`](TESTING.md) for the full testing guide, including manual test
 |----------|---------|
 | [`API.md`](API.md) | Phoenix Channels API — topics, messages, schemas |
 | [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for `media.json` (legacy) and `config.json` |
+| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
 | [`TESTING.md`](TESTING.md) | Automated and manual testing guide for both components |

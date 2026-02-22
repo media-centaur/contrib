@@ -18,11 +18,11 @@ All media entities use vocabulary from [schema.org](https://schema.org), seriali
 
 ---
 
-## media.json — Media Library
+## Entity Data Schema
 
 ### Top-Level Structure
 
-`media.json` is a JSON array of **wrapped entities**:
+The library is represented as a JSON array of wrapped entities. This format is used by the `library` channel (see API.md):
 
 ```json
 [
@@ -74,6 +74,35 @@ Additional fields:
 | `director` | `string` | Director name |
 | `duration` | `string` | ISO 8601 duration (`"PT2H44M"`) |
 | `contentRating` | `string` | MPAA rating: `"G"`, `"PG"`, `"PG-13"`, `"R"`, `"NC-17"` |
+| `hasPart` | `VideoObject[]` | Bonus features (extras, featurettes, behind-the-scenes) |
+
+**Movie with Extras:**
+
+```json
+{
+  "@id": "550e8400-e29b-41d4-a716-446655440030",
+  "entity": {
+    "@type": "Movie",
+    "name": "Playtime",
+    "datePublished": "1967",
+    "director": "Jacques Tati",
+    "duration": "PT2H4M",
+    "contentUrl": "/media/movies/Playtime.1967.Criterion.1080p/Playtime.mkv",
+    "hasPart": [
+      {
+        "@type": "VideoObject",
+        "name": "Like Home",
+        "contentUrl": "/media/movies/Playtime.1967.Criterion.1080p/Extras/Like Home.mkv"
+      },
+      {
+        "@type": "VideoObject",
+        "name": "Making Of",
+        "contentUrl": "/media/movies/Playtime.1967.Criterion.1080p/Extras/Making Of.mkv"
+      }
+    ]
+  }
+}
+```
 
 #### MovieSeries — `schema.org/MovieSeries`
 
@@ -160,6 +189,7 @@ Additional fields:
 | `numberOfEpisodes` | `integer` | Episode count |
 | `name` | `string` | Optional season title |
 | `episode` | `TVEpisode[]` | Embedded ordered list of episodes |
+| `hasPart` | `VideoObject[]` | Bonus features for this season (extras, featurettes) |
 
 **TVEpisode** (embedded inside `episode[]`):
 
@@ -174,7 +204,7 @@ Additional fields:
 
 #### VideoObject — `schema.org/VideoObject`
 
-No additional fields beyond the common set. Used for conference talks, clips, recordings, etc.
+No additional fields beyond the common set. Used for standalone entities (conference talks, clips, recordings) and as bonus features nested inside a Movie's `hasPart` array.
 
 #### Unknown Types
 
