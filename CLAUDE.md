@@ -14,9 +14,11 @@ Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 
 | File | Contents |
 |------|---------|
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for `media.json` and `config.json` |
+| [`COMPONENTS.md`](COMPONENTS.md) | System architecture: backend, UI client, WebSocket communication |
+| [`API.md`](API.md) | Phoenix Channels WebSocket API: topics, messages, schemas |
+| [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
+| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for `media.json` (legacy) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
-| [`COMPONENTS.md`](COMPONENTS.md) | How system components relate and integrate |
 
 ## Related Repositories
 
@@ -24,8 +26,8 @@ Component repositories are sibling directories locally and part of the [freedia-
 
 | Repository | Local path | Description |
 |------------|------------|-------------|
-| `freedia-center/user-interface` | `../user-interface` | Rust/GPUI media browser (active) |
-| `freedia-center/manager` | `../manager` | Metadata scraper and image downloader (planned) |
+| `freedia-center/user-interface` | `../user-interface` | Rust/GPUI rendering client (active) |
+| `freedia-center/media-manager` | `../media-manager` | Backend: media library, playback, watch progress (active) |
 
 ## How to Use These Specs
 
