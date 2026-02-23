@@ -15,25 +15,13 @@ This document specifies how artwork images are stored, referenced, and loaded in
 
 ## ImageObject Schema
 
-Each entry in an entity's `image` array is a schema.org `ImageObject`:
+Each entry in an entity's `image` array is a schema.org `ImageObject`. See [`DATA-FORMAT.md`](DATA-FORMAT.md#imageobject) for the full field definition.
 
-```json
-{
-  "@type": "ImageObject",
-  "name": "poster",
-  "url": "https://image.tmdb.org/t/p/original/1E5baAaEse26fej7uHcjOgEE2t2.jpg",
-  "contentUrl": "images/550e8400-e29b-41d4-a716-446655440004/poster.jpg"
-}
-```
+Key points for image caching:
 
-| Field | Type | Written by | Read by | Description |
-|-------|------|-----------|---------|-------------|
-| `@type` | `"ImageObject"` | manager | — | Always `"ImageObject"` |
-| `name` | `string` | manager | UI | Image role (see roles below) |
-| `url` | `string` | manager | manager | Canonical remote source URL |
-| `contentUrl` | `string` or `null` | manager | UI | Local path relative to data directory — `null` until download completes |
-
-The `contentUrl` path is always relative to the data directory root (e.g. `images/{uuid}/poster.jpg`, not an absolute path).
+- **`url`** — the canonical remote source URL (written by manager, used for re-download)
+- **`contentUrl`** — local path relative to the data directory root (e.g. `images/{uuid}/poster.jpg`, not an absolute path). `null` until download completes. Read by the UI.
+- **`name`** — the image role (see roles below)
 
 ---
 
@@ -50,12 +38,14 @@ The `contentUrl` path is always relative to the data directory root (e.g. `image
 
 ### Roles by Entity Type
 
-| Role | Movie | TVSeries | VideoGame | VideoObject |
-|------|-------|----------|-----------|-------------|
-| `poster` | TMDB poster (2:3) | TMDB poster (2:3) | Steam capsule (600×900) | Thumbnail |
-| `backdrop` | TMDB backdrop (16:9) | TMDB backdrop (16:9) | Steam hero (3840×1240) | — |
-| `logo` | TMDB logo (transparent) | TMDB logo (transparent) | SteamGridDB logo | — |
-| `thumb` | — | Episode thumbnail | — | — |
+| Role | Movie | TVSeries | VideoObject |
+|------|-------|----------|-------------|
+| `poster` | TMDB poster (2:3) | TMDB poster (2:3) | Thumbnail |
+| `backdrop` | TMDB backdrop (16:9) | TMDB backdrop (16:9) | — |
+| `logo` | TMDB logo (transparent) | TMDB logo (transparent) | — |
+| `thumb` | — | Episode thumbnail | — |
+
+> **Planned:** VideoGame support will add Steam capsule (poster), Steam hero (backdrop), and SteamGridDB logo roles.
 
 ---
 
@@ -96,16 +86,16 @@ The manager app uses these patterns when downloading images:
 
 `{poster_path}` etc. come from the TMDB API response (e.g. `/1E5baAaEse26fej7uHcjOgEE2t2.jpg`). Use `original` or `w780` for poster; `original` or `w1280` for backdrop.
 
-**Video Games (Steam):**
-
-| Role | URL pattern |
-|------|-------------|
-| Poster | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg` |
-| Backdrop | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_hero.jpg` |
-
-`{appid}` comes from `identifier` where `propertyID == "steam"`.
-
 **Video Objects:** No standard source. User-provided thumbnails or frames extracted from video.
+
+> **Planned (Video Games / Steam):**
+>
+> | Role | URL pattern |
+> |------|-------------|
+> | Poster | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg` |
+> | Backdrop | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_hero.jpg` |
+>
+> `{appid}` comes from `identifier` where `propertyID == "steam"`.
 
 ---
 

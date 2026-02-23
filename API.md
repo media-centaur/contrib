@@ -307,9 +307,10 @@ All client messages receive a reply with `status: "ok"` or `status: "error"`. Er
 |--------|---------|
 | `"not_found"` | Entity ID does not exist |
 | `"no_playable_content"` | Entity has no content_url (no files) |
-| `"already_playing"` | A playback session is already active (stop it first) |
 | `"not_playing"` | Pause/stop/seek sent but nothing is playing |
 | `"invalid_episode"` | The requested season/episode doesn't exist |
+
+> **Note:** Sending `play` while something is already playing silently stops the previous session and starts the new one. No error is returned.
 
 ---
 

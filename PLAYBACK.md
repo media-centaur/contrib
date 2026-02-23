@@ -57,9 +57,9 @@ MPV exposes a JSON-based IPC interface over a Unix domain socket. Communication 
 
 The backend observes `time-pos` via MPV's property observation mechanism. MPV sends property-change events whenever the value changes (typically every frame, throttled by the IPC socket). The backend:
 
-1. Records position updates to the database at most **every 5 seconds** (debounced — not every frame)
+1. Records position updates to the database at most **every 60 seconds** during active watching (see [Progress Persistence](#progress-persistence))
 2. Pushes position updates to the UI at most **every 2 seconds** (for progress bar display)
-3. Records a final position on any end-of-file or quit event
+3. Records a final position on pause, stop, or end-of-file (if actively watching)
 
 ### MPV Launch Flags
 
@@ -127,20 +127,37 @@ An item is marked `completed: true` when:
 
 - `position_seconds / duration_seconds >= 0.90` (90% of total duration)
 
-This accounts for credits, post-credits scenes, and slight duration mismatches. The threshold is applied automatically when progress is recorded.
+This accounts for credits, post-credits scenes, and slight duration mismatches. Completion is set by the MpvSession after a successful progress upsert — it is a separate `mark_completed` action, not part of the upsert itself.
 
-Once marked completed, the `completed` flag persists even if the user re-watches part of the episode. It can only be reset by an explicit user action (future feature) or by the resume algorithm when replaying from the beginning.
+**Completion is monotonic:** once `completed` is set to `true`, it never regresses to `false`. Re-watching a completed item from an earlier position preserves the completed flag. The `completed` field is excluded from the upsert's ON CONFLICT UPDATE clause, so only the dedicated `mark_completed` action can set it. It can only be reset by an explicit user action (future feature).
 
 ### Progress Persistence
 
-Progress is written to SQLite by the MPV manager GenServer:
+Progress is written to SQLite by the MpvSession GenServer, but only when the user is **actively watching** — not merely seeking through a video.
 
-- **During playback:** Every 5 seconds (debounced from MPV's frame-level updates)
-- **On pause:** Immediately
-- **On stop/end-of-file:** Immediately (final position)
-- **On MPV crash:** Last known position (from the most recent 5-second write)
+#### Continuous Watching Detection
 
-This means at most 5 seconds of progress can be lost if the system crashes.
+The backend tracks whether playback is continuous or the user is seeking:
+
+- **Seek detection:** A position jump of more than **3 seconds** between consecutive `time-pos` updates is treated as a seek. This resets the continuous-watching timer.
+- **Continuous threshold:** The user must watch **20 seconds** of uninterrupted playback (no seeks) before the session is considered "actively watching."
+- **Saveable position:** Only advances while actively watching. Seeks do not update the saveable position.
+
+This prevents seek-around from corrupting saved progress. If the user opens a video, scrubs to check a scene, and closes it without watching 20 continuous seconds, the previous saved position is preserved.
+
+#### Write Timing
+
+- **During active watching:** Every **60 seconds** (debounced from MPV's frame-level updates)
+- **On pause:** Immediately (if actively watching)
+- **On stop/end-of-file:** Immediately (if actively watching)
+- **On MPV crash:** Last known saveable position (from the most recent 60-second write)
+- **Not actively watching:** No DB writes occur
+
+This means at most 60 seconds of progress can be lost if the system crashes during active playback.
+
+#### UI Progress Bar
+
+The UI progress bar is unaffected by write gating. Position updates are broadcast to the UI via PubSub every **2 seconds** regardless of watching state, so the progress bar always reflects the current `time-pos` in real time.
 
 ---
 

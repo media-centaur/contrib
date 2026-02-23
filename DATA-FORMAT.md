@@ -9,12 +9,12 @@ Canonical reference for all JSON data formats in the Freedia Center system. Both
 All media entities use vocabulary from [schema.org](https://schema.org), serialised as [JSON-LD](https://json-ld.org/). This is the most important design constraint in the system.
 
 - **Field names are schema.org property names.** `name`, `description`, `datePublished`, `contentUrl`, `genre`, `director`, `duration`, `containsSeason`, `episodeNumber`, and all others are schema.org properties. Do not rename them or invent alternatives.
-- **`@type` is the schema.org class.** `"Movie"`, `"TVSeries"`, `"VideoGame"`, `"VideoObject"`, `"ImageObject"`, `"PropertyValue"` are schema.org types. Use exact canonical capitalisation.
+- **`@type` is the schema.org class.** `"Movie"`, `"TVSeries"`, `"MovieSeries"`, `"VideoObject"`, `"ImageObject"`, `"PropertyValue"` are schema.org types. Use exact canonical capitalisation.
 - **`@id` is a JSON-LD node identifier.** In this system it is a plain UUID (e.g. `"550e8400-e29b-41d4-a716-446655440004"`), not a full URI. It is the app-level stable key used for image directory names and cross-references.
 - **The outer wrapper is app-specific.** The `{ "@id": ..., "entity": {...} }` envelope is not schema.org — it is a thin app container. The inner `entity` object is a valid schema.org node.
 - **Before adding a field:** check [schema.org](https://schema.org) for an existing property and use it if one fits. Only introduce a non-schema.org field if there is no reasonable match, and document why.
 
-**Why schema.org?** It provides a large, well-maintained vocabulary for media (Movie, TVSeries, VideoGame, VideoObject, etc.) with established field semantics. External metadata sources (TMDB, Steam, IGDB, TVDB) map cleanly onto it. The format is human-readable, git-diffable, and works with standard JSON tooling without a specialised parser.
+**Why schema.org?** It provides a large, well-maintained vocabulary for media (Movie, TVSeries, MovieSeries, VideoObject, etc.) with established field semantics. External metadata sources (TMDB, Steam, IGDB, TVDB) map cleanly onto it. The format is human-readable, git-diffable, and works with standard JSON tooling without a specialised parser.
 
 ---
 
@@ -163,15 +163,6 @@ Example:
 }
 ```
 
-#### VideoGame — `schema.org/VideoGame`
-
-Additional fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `gamePlatform` | `string` | Platform name (`"PC"`, `"PlayStation 5"`) |
-| `publisher` | `string` | Publisher name |
-
 #### TVSeries — `schema.org/TVSeries`
 
 Additional fields:
@@ -301,34 +292,18 @@ Identifiers are flattened for action template substitution as `identifier.{prope
 }
 ```
 
-**VideoGame:**
+---
 
-```json
-{
-  "@id": "550e8400-e29b-41d4-a716-446655440004",
-  "entity": {
-    "@type": "VideoGame",
-    "name": "Elden Ring",
-    "description": "An action RPG set in the Lands Between.",
-    "datePublished": "2022",
-    "genre": ["Action RPG", "Open World"],
-    "gamePlatform": "PC",
-    "publisher": "Bandai Namco",
-    "image": [
-      {
-        "@type": "ImageObject",
-        "name": "poster",
-        "url": "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1245620/library_600x900.jpg",
-        "contentUrl": "images/550e8400-e29b-41d4-a716-446655440004/poster.jpg"
-      }
-    ],
-    "identifier": [
-      { "@type": "PropertyValue", "propertyID": "steam", "value": "1245620" }
-    ],
-    "aggregateRating": { "ratingValue": 9.2 }
-  }
-}
-```
+## Planned Entity Types
+
+The following types are defined in schema.org and planned for future implementation but are **not yet supported** by the backend.
+
+### VideoGame — `schema.org/VideoGame`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `gamePlatform` | `string` | Platform name (`"PC"`, `"PlayStation 5"`) |
+| `publisher` | `string` | Publisher name |
 
 ---
 

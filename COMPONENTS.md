@@ -44,8 +44,6 @@ The backend is the **single source of truth** for the entire system. It manages 
 - MPV control: JSON IPC over Unix domain sockets, managed by GenServer-per-instance
 - HTTP client: Req
 
-**Design document:** `media-manager/DESIGN.md`
-
 ---
 
 ## User-Interface (client)
