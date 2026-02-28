@@ -1,6 +1,6 @@
 # Phoenix Channels API Specification
 
-This document specifies the WebSocket API between the backend (media-manager) and the user-interface. The API uses the [Phoenix Channels](https://hexdocs.pm/phoenix/channels.html) protocol over a single WebSocket connection.
+This document specifies the WebSocket API between the backend (backend) and the frontend. The API uses the [Phoenix Channels](https://hexdocs.pm/phoenix/channels.html) protocol over a single WebSocket connection.
 
 ---
 

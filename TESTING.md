@@ -1,15 +1,15 @@
 # Testing Guide
 
-This document covers how to test the Freedia Center system — both automated tests and manual testing procedures for independent and integrated verification.
+This document covers how to test the Media Centaur system — both automated tests and manual testing procedures for independent and integrated verification.
 
 ---
 
 ## Automated Tests
 
-### Backend (media-manager)
+### Backend (backend)
 
 ```bash
-cd media-manager
+cd backend
 mix test                      # run all tests (excludes :external by default)
 mix test --only external      # run TMDB integration tests (requires network)
 mix precommit                 # compile --warnings-as-errors, format, test
@@ -21,19 +21,19 @@ Tests are organized by domain, mirroring the application's module structure. Eac
 
 | Path | What it covers |
 |------|---------------|
-| `test/media_manager/library/entity_test.exs` | Entity CRUD, UUID stability, round-trip reads |
-| `test/media_manager/library/watched_file_test.exs` | WatchedFile detection, search, metadata fetch |
-| `test/media_manager/library/watch_progress_test.exs` | WatchProgress upsert, auto-completion, idempotency |
-| `test/media_manager/serializer_test.exs` | Serializer output shape, DATA-FORMAT.md compliance, MovieSeries handling |
-| `test/media_manager_web/channels/library_channel_test.exs` | Library channel join reply shape, entity push shapes, JSON string keys |
-| `test/media_manager_web/channels/playback_channel_test.exs` | Playback channel join reply shape, PubSub push shapes, JSON string keys |
+| `test/media_centaur/library/entity_test.exs` | Entity CRUD, UUID stability, round-trip reads |
+| `test/media_centaur/library/watched_file_test.exs` | WatchedFile detection, search, metadata fetch |
+| `test/media_centaur/library/watch_progress_test.exs` | WatchProgress upsert, auto-completion, idempotency |
+| `test/media_centaur/serializer_test.exs` | Serializer output shape, DATA-FORMAT.md compliance, MovieSeries handling |
+| `test/media_centaur_web/channels/library_channel_test.exs` | Library channel join reply shape, entity push shapes, JSON string keys |
+| `test/media_centaur_web/channels/playback_channel_test.exs` | Playback channel join reply shape, PubSub push shapes, JSON string keys |
 
 Tests that require external network access (TMDB API) are tagged `@tag :external` and excluded from the default test run.
 
-### Frontend (user-interface)
+### Frontend (frontend)
 
 ```bash
-cd user-interface
+cd frontend
 cargo test                        # run all tests
 cargo clippy -- -D warnings       # lint
 cargo fmt --check                 # format check
@@ -91,18 +91,18 @@ The server replies with the full entity list:
 Start the server in an interactive shell to simulate events:
 
 ```bash
-cd media-manager
+cd backend
 iex -S mix phx.server
 ```
 
 **Simulate a library update** (triggers `entity_added`/`entity_updated` pushes to connected clients):
 ```elixir
-Phoenix.PubSub.broadcast(MediaManager.PubSub, "library:updates", {:entities_changed, ["entity-uuid-here"]})
+Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "library:updates", {:entities_changed, ["entity-uuid-here"]})
 ```
 
 **Simulate a playback state change:**
 ```elixir
-Phoenix.PubSub.broadcast(MediaManager.PubSub, "playback:events", {:playback_state_changed, :playing, %{
+Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events", {:playback_state_changed, :playing, %{
   entity_id: "entity-uuid",
   entity_name: "Test Movie",
   season_number: nil,
@@ -115,7 +115,7 @@ Phoenix.PubSub.broadcast(MediaManager.PubSub, "playback:events", {:playback_stat
 
 **Simulate a progress tick:**
 ```elixir
-Phoenix.PubSub.broadcast(MediaManager.PubSub, "playback:events", {:playback_progress, %{
+Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events", {:playback_progress, %{
   position_seconds: 120.5,
   duration_seconds: 7200.0
 }})
@@ -128,7 +128,7 @@ Phoenix.PubSub.broadcast(MediaManager.PubSub, "playback:events", {:playback_prog
 ### Without a backend
 
 ```bash
-cd user-interface
+cd frontend
 cargo run
 ```
 
@@ -142,13 +142,13 @@ The UI starts with an empty library and attempts to connect to the backend. When
 
 1. **Start the backend:**
    ```bash
-   cd media-manager
+   cd backend
    mix phx.server
    ```
 
 2. **Start the frontend:**
    ```bash
-   cd user-interface
+   cd frontend
    cargo run
    ```
 

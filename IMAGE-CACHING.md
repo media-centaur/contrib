@@ -1,13 +1,13 @@
 # Image Cache Specification
 
-This document specifies how artwork images are stored, referenced, and loaded in the Freedia Center system.
+This document specifies how artwork images are stored, referenced, and loaded in the Media Centaur system.
 
 ---
 
 ## Design Principles
 
 - **One copy per role, GPU scales.** Store a single high-quality image per role (poster, backdrop, logo). Never store multiple resolutions. GPUI renders via Vulkan — GPU texture scaling is free.
-- **Remote URL + local path separation.** Each image record stores both the original remote URL and the local cached path. The manager app writes `url` during metadata fetch and `contentUrl` after the file is downloaded; the user-interface reads only the local path.
+- **Remote URL + local path separation.** Each image record stores both the original remote URL and the local cached path. The manager app writes `url` during metadata fetch and `contentUrl` after the file is downloaded; the frontend reads only the local path.
 - **Always use an array.** `image` is always `ImageObject[]`, even when there is one image. This avoids a schema migration when additional roles are added.
 - **UUID-keyed directories.** Each entity's images live under `data/images/{entity-@id}/`. The entity `@id` is the sole key — no name-based paths.
 
@@ -120,7 +120,7 @@ The manager app uses these patterns when downloading images:
 
 ## Fallback Behavior
 
-The user-interface must handle missing images gracefully at every level:
+The frontend must handle missing images gracefully at every level:
 
 1. Entity has no `image` array or empty array → solid-color placeholder
 2. No entry with `name == "poster"` → solid-color placeholder

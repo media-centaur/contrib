@@ -1,6 +1,6 @@
 # System Components
 
-Freedia Center is built from two primary components: a **backend** (Elixir/Phoenix) that owns all data and playback logic, and a **user-interface** (Rust/GPUI) that acts as a thin rendering client. They communicate over a **WebSocket connection** using Phoenix Channels.
+Media Centaur is built from two primary components: a **backend** (Elixir/Phoenix) that owns all data and playback logic, and a **frontend** (Rust/GPUI) that acts as a thin rendering client. They communicate over a **WebSocket connection** using Phoenix Channels.
 
 ---
 
@@ -8,14 +8,14 @@ Freedia Center is built from two primary components: a **backend** (Elixir/Phoen
 
 | Component | Role |
 |-----------|------|
-| `media-manager` (backend) | Authoritative service: media library, metadata scraping, MPV playback lifecycle, watch progress, resume logic |
-| `user-interface` (client) | Rendering client: displays library, sends play commands, shows playback progress |
+| `backend` (backend) | Authoritative service: media library, metadata scraping, MPV playback lifecycle, watch progress, resume logic |
+| `frontend` (client) | Rendering client: displays library, sends play commands, shows playback progress |
 
 ---
 
-## Backend (media-manager)
+## Backend (backend)
 
-**Repository:** `freedia-center/media-manager`
+**Repository:** `media-centaur/backend`
 
 The backend is the **single source of truth** for the entire system. It manages the media library, controls MPV playback, tracks watch progress, and exposes all data and commands over a Phoenix Channels WebSocket API.
 
@@ -48,7 +48,7 @@ The backend is the **single source of truth** for the entire system. It manages 
 
 ## User-Interface (client)
 
-**Repository:** `freedia-center/user-interface`
+**Repository:** `media-centaur/frontend`
 
 A Rust/GPUI native desktop application designed for fullscreen 10-foot UI with remote or gamepad input. It connects to the backend on startup and operates as a rendering client — all data comes from the backend, all commands go to the backend.
 
@@ -112,10 +112,10 @@ Both components share a configurable path for **images** (served as files, not o
 
 | Path | Default | Purpose |
 |------|---------|---------|
-| `media_images_dir` | `~/.local/share/freedia-center/images` | Cached artwork images — one subdirectory per entity UUID |
+| `media_images_dir` | `~/.local/share/media-centaur/images` | Cached artwork images — one subdirectory per entity UUID |
 
 ```
-~/.local/share/freedia-center/
+~/.local/share/media-centaur/
 └── images/
     ├── {uuid}/             # One directory per entity @id
     │   ├── poster.jpg

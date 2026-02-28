@@ -1,6 +1,6 @@
-# Freedia Center — Specifications
+# Media Centaur — Specifications
 
-This repository (`freedia-center/specifications`) is the **authoritative source** for all cross-component specifications in the Freedia Center project. Every component repository references these documents.
+This repository (`media-centaur/specifications`) is the **authoritative source** for all cross-component specifications in the Media Centaur project. Every component repository references these documents.
 
 ## Data Model Foundation
 
@@ -23,12 +23,12 @@ Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 
 ## Related Repositories
 
-Component repositories are sibling directories locally and part of the [freedia-center](https://github.com/freedia-center) GitHub organization.
+Component repositories are sibling directories locally and part of the [media-centaur](https://github.com/media-centaur) GitHub organization.
 
 | Repository | Local path | Description |
 |------------|------------|-------------|
-| `freedia-center/user-interface` | `../user-interface` | Rust/GPUI rendering client (active) |
-| `freedia-center/media-manager` | `../media-manager` | Backend: media library, playback, watch progress (active) |
+| `media-centaur/frontend` | `../frontend` | Rust/GPUI rendering client (active) |
+| `media-centaur/backend` | `../backend` | Backend: media library, playback, watch progress (active) |
 
 ## How to Use These Specs
 
@@ -47,11 +47,11 @@ Component repositories are sibling directories locally and part of the [freedia-
 
 ### Working with the Specs
 
-- **Specs are the authoritative contract.** The user-interface team (and future agents) learn what this app produces by reading the specs. When in doubt about a field name, message format, or behavior, the spec wins over the implementation.
+- **Specs are the authoritative contract.** The frontend team (and future agents) learn what this app produces by reading the specs. When in doubt about a field name, message format, or behavior, the spec wins over the implementation.
 - `API.md` specifies every channel topic, every client message, every server push, and every reply schema. The Rust UI implements its WebSocket client from this document — any deviation breaks the UI.
 - `PLAYBACK.md` specifies the MPV launch flags, IPC protocol, progress persistence intervals, and resume algorithm. Both the backend implementation and the UI's playback state display derive from this spec.
-- `DATA-FORMAT.md` specifies the JSON written by the media-manager. Follow field names and structure exactly.
-- `IMAGE-CACHING.md` specifies the exact `contentUrl` path format (`images/{uuid}/{role}.{ext}`), image roles, and remote URL patterns for each source (TMDB, Steam). Follow these precisely — the user-interface uses them verbatim.
+- `DATA-FORMAT.md` specifies the JSON written by the backend. Follow field names and structure exactly.
+- `IMAGE-CACHING.md` specifies the exact `contentUrl` path format (`images/{uuid}/{role}.{ext}`), image roles, and remote URL patterns for each source (TMDB, Steam). Follow these precisely — the frontend uses them verbatim.
 - `COMPONENTS.md` describes the overall system architecture and which component owns what. Refer to it when designing new features that affect the integration boundary.
 
 ### Keeping the Specs Updated
@@ -71,7 +71,7 @@ Any .md documentation created for this project should be kept up to date.
 
 ## Version Control (Jujutsu)
 
-All repositories in freedia-center use **JJ (Jujutsu)** — never use raw `git` commands.
+All repositories in media-centaur use **JJ (Jujutsu)** — never use raw `git` commands.
 
 - After completing a feature, set a change description: `jj describe -m "type: short description"`
 - Use conventional commit style matching existing history (e.g. `feat:`, `fix:`, `refactor:`). Keep it concise and high-level.

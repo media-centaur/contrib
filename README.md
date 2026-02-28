@@ -1,6 +1,6 @@
-# Freedia Center — Specifications
+# Media Centaur — Specifications
 
-Cross-component specifications for the Freedia Center project. All components in the [freedia-center](https://github.com/freedia-center) organization reference these documents.
+Cross-component specifications for the Media Centaur project. All components in the [media-centaur](https://github.com/media-centaur) organization reference these documents.
 
 ## Documents
 

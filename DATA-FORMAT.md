@@ -1,6 +1,6 @@
 # Data Format Specification
 
-Canonical reference for all JSON data formats in the Freedia Center system. Both the `user-interface` app and the `manager` app use these formats.
+Canonical reference for all JSON data formats in the Media Centaur system. Both the `frontend` app and the `manager` app use these formats.
 
 ---
 
