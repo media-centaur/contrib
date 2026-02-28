@@ -20,7 +20,7 @@ Each entry in an entity's `image` array is a schema.org `ImageObject`. See [`DAT
 Key points for image caching:
 
 - **`url`** — the canonical remote source URL (written by manager, used for re-download)
-- **`contentUrl`** — local path relative to the data directory root (e.g. `images/{uuid}/poster.jpg`, not an absolute path). `null` until download completes. Read by the UI.
+- **`contentUrl`** — stored as a relative path in the database (`{uuid}/poster.jpg`). Resolved to an absolute filesystem path by the serializer when pushed over the channel (e.g. `/mnt/media/.media-centaur/images/{uuid}/poster.jpg`). `null` until download completes. Read by the UI.
 - **`name`** — the image role (see roles below)
 
 ---
@@ -51,15 +51,29 @@ Key points for image caching:
 
 ## Directory Structure
 
+Each watch directory has its own image cache. By default, images are stored at `{watch_dir}/.media-centaur/images/`. Users can override this per watch directory in the TOML config.
+
+```toml
+# Per-watch-directory image caches
+watch_dirs = [
+  { dir = "/mnt/videos/Movies", images_dir = "/mnt/videos/.media-centaur/images" },
+  { dir = "/mnt/nas/TV" },  # defaults to /mnt/nas/TV/.media-centaur/images
+]
 ```
-data/
+
+```
+/mnt/videos/.media-centaur/
 └── images/
     ├── 550e8400-e29b-41d4-a716-446655440001/   # Blade Runner 2049 (entity)
     │   ├── poster.jpg
     │   └── backdrop.jpg
-    ├── 550e8400-e29b-41d4-a716-446655440004/   # Elden Ring (entity)
-    │   └── poster.jpg
     ├── 660a1200-b33c-42e5-b819-557766550010/   # Child Movie (movie)
+    │   └── poster.jpg
+    └── ...
+
+/mnt/nas/TV/.media-centaur/
+└── images/
+    ├── 550e8400-e29b-41d4-a716-446655440004/   # Breaking Bad (entity)
     │   └── poster.jpg
     ├── 770b2300-c44d-53f6-c920-668877660020/   # S01E03 (episode)
     │   └── thumb.jpg
@@ -68,7 +82,8 @@ data/
 
 - One subdirectory per owner (entity, child movie, or episode), named by the owner's UUID.
 - Filename is `{role}.{ext}` — extension matches the source format (`.jpg` or `.png`).
-- `contentUrl` in entity data (channel messages) must match the actual file path exactly.
+- `contentUrl` in channel messages is an absolute filesystem path resolved by the serializer at push time. The database stores relative paths (`{uuid}/{role}.{ext}`).
+- Staging directories for in-progress downloads are created at `{images_dir}/../tmp-image-download/` and cleaned up after pipeline completion and on application startup.
 
 ---
 
@@ -105,9 +120,10 @@ The manager app uses these patterns when downloading images:
 
 - Query external APIs to get image URLs
 - Create `ImageObject` entries with `url` populated (remote TMDB URL) and `contentUrl: null`
-- Download images to `data/images/{uuid}/{role}.{ext}`
+- Download images to `{images_dir}/{uuid}/{role}.{ext}`, where `images_dir` is resolved per watch directory via `Config.images_dir_for/1`
 - Update `contentUrl` in the `ImageObject` entry with the local path after successful download
 - Never overwrite a locally modified image without user confirmation
+- The `/media-images/*` endpoint searches all watch directories' image caches to serve images
 
 ### User-Interface App
 

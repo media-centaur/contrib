@@ -51,7 +51,7 @@ Component repositories are sibling directories locally and part of the [media-ce
 - `API.md` specifies every channel topic, every client message, every server push, and every reply schema. The Rust UI implements its WebSocket client from this document — any deviation breaks the UI.
 - `PLAYBACK.md` specifies the MPV launch flags, IPC protocol, progress persistence intervals, and resume algorithm. Both the backend implementation and the UI's playback state display derive from this spec.
 - `DATA-FORMAT.md` specifies the JSON written by the backend. Follow field names and structure exactly.
-- `IMAGE-CACHING.md` specifies the exact `contentUrl` path format (`images/{uuid}/{role}.{ext}`), image roles, and remote URL patterns for each source (TMDB, Steam). Follow these precisely — the frontend uses them verbatim.
+- `IMAGE-CACHING.md` specifies image roles, directory conventions, and remote URL patterns for each source (TMDB, Steam). Image `contentUrl` values in channel messages are absolute filesystem paths resolved by the serializer — the frontend reads them directly without path resolution.
 - `COMPONENTS.md` describes the overall system architecture and which component owns what. Refer to it when designing new features that affect the integration boundary.
 
 ### Keeping the Specs Updated

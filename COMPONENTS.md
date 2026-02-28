@@ -108,23 +108,9 @@ See [`API.md`](API.md) for the full message schema and channel specification.
 
 ## Shared Data Paths
 
-Both components share a configurable path for **images** (served as files, not over the WebSocket).
+Image files are stored on disk by the backend and referenced by absolute filesystem path in entity data pushed over the WebSocket. The backend resolves paths at serialization time — the UI receives ready-to-use absolute paths and never needs a base directory.
 
-| Path | Default | Purpose |
-|------|---------|---------|
-| `media_images_dir` | `~/.local/share/media-centaur/images` | Cached artwork images — one subdirectory per entity UUID |
-
-```
-~/.local/share/media-centaur/
-└── images/
-    ├── {uuid}/             # One directory per entity @id
-    │   ├── poster.jpg
-    │   ├── backdrop.jpg
-    │   └── logo.png
-    └── ...
-```
-
-Image paths are communicated to the UI via the API (as part of entity data), and the UI resolves them against the configured `media_images_dir`. Format details are in `IMAGE-CACHING.md`.
+Format details are in `IMAGE-CACHING.md`.
 
 ---
 
@@ -142,7 +128,7 @@ See [`API.md`](API.md) for the complete specification.
 
 ### Secondary: File System (images)
 
-1. Image files exist at paths specified in entity data, relative to `media_images_dir`.
+1. Image files exist at absolute paths specified in entity data (`contentUrl` fields). The backend resolves paths at push time.
 2. Entity `@id` values are stable UUIDs — they double as image directory names and must never be reassigned.
 3. The UI handles missing images gracefully (placeholder rendering).
 
