@@ -27,7 +27,7 @@ The backend is the **single source of truth** for the entire system. It manages 
 - Manage MPV playback instances (launch, monitor, stop) via JSON IPC over Unix domain sockets
 - Track watch progress per episode/movie (position, duration, timestamps)
 - Implement resume logic: given "play series X", determine the correct episode and position
-- Push real-time updates to the UI: library changes, playback state, progress ticks
+- Push real-time updates to the UI: library changes, playback state, entity progress updates
 - Provide a local admin panel (Phoenix LiveView) for manual review and library management
 
 ### Technology
@@ -80,7 +80,7 @@ The UI and backend communicate over a single WebSocket connection using the Phoe
 
 | Direction | Examples |
 |-----------|---------|
-| Backend → UI | Full library on join, library updates (entity added/removed/changed), playback state changes, progress ticks |
+| Backend → UI | Full library on join, library updates (entity added/removed/changed), playback state changes, entity progress updates |
 | UI → Backend | Play commands (entity ID, optional episode), pause, stop, seek |
 
 See [`API.md`](API.md) for the full message schema and channel specification.

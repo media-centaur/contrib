@@ -237,39 +237,36 @@ Possible `state` values: `"playing"`, `"paused"`, `"stopped"`, `"idle"`.
 
 When `state` is `"idle"` or `"stopped"`, `now_playing` is `null`.
 
-### Server Push: `playback:progress`
-
-Sent every 2 seconds during active playback. Lightweight message for updating the UI progress bar.
-
-```json
-{
-  "position_seconds": 1205.3,
-  "duration_seconds": 3200.0
-}
-```
-
 ### Server Push: `playback:entity_progress_updated`
 
-Sent when an entity's overall progress summary changes (e.g. an episode was marked completed). The UI uses this to update progress indicators on grid cards without re-fetching the entire library.
+Sent on every `WatchProgress` database write — every ~60 seconds during active watching, and immediately on pause, stop, EOF, or completion. The UI uses this to update progress indicators on grid cards and per-child detail views.
 
 ```json
 {
   "entity_id": "660f9500-...",
   "progress": {
-    "current_episode": { "season": 2, "episode": 4 },
-    "episode_position_seconds": 0,
-    "episode_duration_seconds": 3100.0,
-    "episodes_completed": 13,
+    "current_episode": { "season": 2, "episode": 3 },
+    "episode_position_seconds": 1205.3,
+    "episode_duration_seconds": 3200.0,
+    "episodes_completed": 12,
     "episodes_total": 20
   },
   "resumeTarget": {
-    "action": "begin",
+    "action": "resume",
     "targetId": "ep-uuid",
-    "name": "Next Episode",
+    "name": "Who Is Alive?",
     "seasonNumber": 2,
-    "episodeNumber": 5
+    "episodeNumber": 3,
+    "positionSeconds": 1205.3,
+    "durationSeconds": 3200.0
+  },
+  "childTargets": {
+    "ep-uuid": { "action": "resume", "positionSeconds": 1205.3, "durationSeconds": 3200.0 }
   }
 }
+```
+
+The `childTargets` field is a **delta** — it contains only the affected child (single key), not the full map. The frontend merges this into its local child targets state. For standalone movies, `childTargets` is `null`.
 ```
 
 ---
@@ -284,7 +281,11 @@ The `resumeTarget` field is a display hint that tells the frontend what will pla
 
 When an entity is fully completed or has no playable content, `resumeTarget` is `null`. When all items would restart, it is also `null` (the UI should not suggest a re-watch as the default action).
 
-`childTargets` is included in `library:entities` only (not in progress updates). It provides per-child hints keyed by UUID so the frontend can display watch state on individual episodes or movies within a series.
+`childTargets` is included in:
+- `library:entities` — full map of all children's hints (on initial sync and entity updates)
+- `playback:entity_progress_updated` — delta with only the affected child's hint (on progress saves)
+
+The frontend maintains the full child targets map locally and merges deltas from progress updates into it.
 
 See `DATA-FORMAT.md` for the full field schemas, value types, and examples.
 
@@ -342,10 +343,10 @@ Backend:            resolves UUID as Entity, runs resume algorithm
 Backend → UI:       reply {action: "resume", season: 2, episode: 3, position: 1200.5}
 Backend:            launches MPV, seeks to position
 Backend → UI:       push "playback:state_changed" {state: "playing", now_playing: {...}}
-Backend → UI:       push "playback:progress" {position: 1202.3, ...}  (every 2s)
+Backend → UI:       push "playback:entity_progress_updated" {...}      (every ~60s during active watching)
 ...
+Backend → UI:       push "playback:entity_progress_updated" {...}      (final progress saved)
 Backend → UI:       push "playback:state_changed" {state: "idle"}     (MPV closed)
-Backend → UI:       push "playback:entity_progress_updated" {...}      (progress saved)
 ```
 
 ### User plays a specific episode (via episode UUID)

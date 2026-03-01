@@ -58,7 +58,7 @@ MPV exposes a JSON-based IPC interface over a Unix domain socket. Communication 
 The backend observes `time-pos` via MPV's property observation mechanism. MPV sends property-change events whenever the value changes (typically every frame, throttled by the IPC socket). The backend:
 
 1. Records position updates to the database at most **every 60 seconds** during active watching (see [Progress Persistence](#progress-persistence))
-2. Pushes position updates to the UI at most **every 2 seconds** (for progress bar display)
+2. Pushes a `playback:entity_progress_updated` message to the frontend on every database write (see [Channel Push on Save](#channel-push-on-save))
 3. Records a final position on pause, stop, or end-of-file (if actively watching)
 
 ### MPV Launch Flags
@@ -156,9 +156,9 @@ This prevents seek-around from corrupting saved progress. If the user opens a vi
 
 This means at most 60 seconds of progress can be lost if the system crashes during active playback.
 
-#### UI Progress Bar
+#### Channel Push on Save
 
-The UI progress bar is unaffected by write gating. Position updates are broadcast to the UI via PubSub every **2 seconds** regardless of watching state, so the progress bar always reflects the current `time-pos` in real time.
+Every database write triggers a `playback:entity_progress_updated` push to the frontend via PubSub. This includes the entity-level progress summary, resume target, and a `childTargets` delta identifying the affected child. The frontend receives progress updates at save cadence — not in real time. See `API.md` for the message format.
 
 ---
 

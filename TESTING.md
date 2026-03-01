@@ -68,12 +68,16 @@ Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events", {:playback_stat
 }})
 ```
 
-**Simulate a progress tick:**
+**Simulate an entity progress update:**
 ```elixir
-Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events", {:playback_progress, %{
-  position_seconds: 120.5,
-  duration_seconds: 7200.0
-}})
+Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events",
+  {:entity_progress_updated, "entity-uuid", %{
+    current_episode: nil,
+    episode_position_seconds: 120.5,
+    episode_duration_seconds: 7200.0,
+    episodes_completed: 0,
+    episodes_total: 1
+  }, %{"action" => "resume", "name" => "Test", "positionSeconds" => 120.5, "durationSeconds" => 7200.0}, nil})
 ```
 
 ---
@@ -119,5 +123,5 @@ The UI starts with an empty library and attempts to connect to the backend. When
 5. **Verify playback (requires MPV installed):**
    - Select an entity in the UI and trigger play
    - The backend launches MPV and pushes `playback:state_changed`
-   - Progress ticks appear every 2 seconds
+   - Entity progress updates appear on each DB save (~60s interval, and on pause/stop/EOF)
    - Closing MPV triggers `playback:state_changed` with `state: "idle"`
