@@ -30,11 +30,6 @@ The backend is the **single source of truth** for the entire system. It manages 
 - Push real-time updates to the UI: library changes, playback state, progress ticks
 - Provide a local admin panel (Phoenix LiveView) for manual review and library management
 
-### Does NOT
-
-- Render any media center UI (the admin panel is for management only)
-- Support games (out of scope for playback features)
-
 ### Technology
 
 - Language: Elixir
@@ -62,13 +57,6 @@ A Rust/GPUI native desktop application designed for fullscreen 10-foot UI with r
 - Display connection status when the backend is unavailable
 - Handle reconnection gracefully
 
-### Does NOT
-
-- Write to `images/`
-- Launch MPV or any playback process directly
-- Track watch progress or implement resume logic
-- Call external APIs (TMDB, Steam, etc.)
-
 ### Backend Required
 
 The UI requires a running backend. If the backend is unavailable, the UI starts with an empty library and shows a connection status screen until the backend connects. There is no offline mode or file-based fallback — the backend is the single source of truth.
@@ -86,14 +74,7 @@ The UI requires a running backend. If the backend is unavailable, the UI starts 
 
 ## Communication: Phoenix Channels (WebSocket)
 
-The UI and backend communicate over a single WebSocket connection using the Phoenix Channels protocol.
-
-### Why Phoenix Channels
-
-- **Bidirectional:** The UI sends commands (play, pause, stop); the backend pushes updates (library changes, progress ticks, playback state)
-- **Multiplexed:** Multiple logical topics over one connection (library, playback, progress)
-- **Resilient:** Built-in heartbeat, automatic reconnection, message buffering
-- **Already available:** Phoenix includes Channels — no additional dependencies on the backend
+The UI and backend communicate over a single WebSocket connection using the Phoenix Channels protocol. Bidirectional, multiplexed, with built-in heartbeat and automatic reconnection.
 
 ### High-Level Contract
 
@@ -145,16 +126,4 @@ Both components have automated test suites that verify the WebSocket API contrac
 
 Both sides test against the same contract. If either side's wire format drifts, its tests fail.
 
-See [`TESTING.md`](TESTING.md) for the full testing guide, including manual testing procedures.
-
----
-
-## Related Specifications
-
-| Document | Contents |
-|----------|---------|
-| [`API.md`](API.md) | Phoenix Channels API — topics, messages, schemas |
-| [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
-| [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
-| [`TESTING.md`](TESTING.md) | Automated and manual testing guide for both components |
+See [`TESTING.md`](TESTING.md) for manual testing procedures.

@@ -1,52 +1,10 @@
 # Testing Guide
 
-This document covers how to test the Media Centaur system — both automated tests and manual testing procedures for independent and integrated verification.
+This document covers manual testing procedures for independent and integrated verification of the Media Centaur system.
 
----
-
-## Automated Tests
-
-### Backend (backend)
-
-```bash
-cd backend
-mix test                      # run all tests (excludes :external by default)
-mix test --only external      # run TMDB integration tests (requires network)
-mix precommit                 # compile --warnings-as-errors, format, test
-```
-
-**Test organization:**
-
-Tests are organized by domain, mirroring the application's module structure. Each test file covers one bounded context or integration seam:
-
-| Path | What it covers |
-|------|---------------|
-| `test/media_centaur/library/entity_test.exs` | Entity CRUD, UUID stability, round-trip reads |
-| `test/media_centaur/library/watched_file_test.exs` | WatchedFile detection, search, metadata fetch |
-| `test/media_centaur/library/watch_progress_test.exs` | WatchProgress upsert, auto-completion, idempotency |
-| `test/media_centaur/serializer_test.exs` | Serializer output shape, DATA-FORMAT.md compliance, MovieSeries handling |
-| `test/media_centaur_web/channels/library_channel_test.exs` | Library channel join reply shape, entity push shapes, JSON string keys |
-| `test/media_centaur_web/channels/playback_channel_test.exs` | Playback channel join reply shape, PubSub push shapes, JSON string keys |
-
-Tests that require external network access (TMDB API) are tagged `@tag :external` and excluded from the default test run.
-
-### Frontend (frontend)
-
-```bash
-cd frontend
-cargo test                        # run all tests
-cargo clippy -- -D warnings       # lint
-cargo fmt --check                 # format check
-```
-
-**Test organization:**
-
-| Module | What it covers |
-|--------|---------------|
-| `backend::dispatch` | Message classification for every API.md message type with realistic payloads |
-| `backend::commands` | Outgoing command serialization (play, pause, stop, seek, heartbeat) |
-| `backend::protocol` | Phoenix Channels wire protocol encode/decode |
-| `data::progress` | WatchProgress fraction and completion calculations |
+For automated test organization, commands, and strategy, see each component's `CLAUDE.md`:
+- **Backend:** `backend/CLAUDE.md` → Testing Strategy section
+- **Frontend:** `frontend/CLAUDE.md`
 
 ---
 
@@ -71,10 +29,7 @@ wscat -c 'ws://localhost:4000/socket/websocket?vsn=2.0.0'
 ["1","1","library","phx_join",{}]
 ```
 
-The server replies with the full entity list:
-```json
-["1","1","library","phx_reply",{"status":"ok","response":{"entities":[...]}}]
-```
+The server replies with `phx_reply` then streams `library:entities` batches followed by `library:sync_complete`.
 
 **Join the playback channel:**
 ```json
@@ -95,7 +50,7 @@ cd backend
 iex -S mix phx.server
 ```
 
-**Simulate a library update** (triggers `entity_added`/`entity_updated` pushes to connected clients):
+**Simulate a library update** (triggers entity pushes to connected clients):
 ```elixir
 Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "library:updates", {:entities_changed, ["entity-uuid-here"]})
 ```
@@ -159,7 +114,7 @@ The UI starts with an empty library and attempts to connect to the backend. When
 4. **Verify live updates:**
    - Drop a video file into a configured `watch_dir`
    - The pipeline processes it (detection → search → metadata → images)
-   - The UI receives a `library:entity_added` push and displays the new entity
+   - The UI receives a `library:entities` push and displays the new entity
 
 5. **Verify playback (requires MPV installed):**
    - Select an entity in the UI and trigger play

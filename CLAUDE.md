@@ -6,7 +6,7 @@ This repository (`media-centaur/specifications`) is the **authoritative source**
 
 All entity data in this project is grounded in [schema.org](https://schema.org) vocabulary, serialised as [JSON-LD](https://json-ld.org/). This is the most important design constraint in the system.
 
-Entity field names (`name`, `datePublished`, `contentUrl`, `containsSeason`, `episodeNumber`, etc.) are **schema.org property names** — not arbitrary identifiers. Entity types (`Movie`, `TVSeries`, `VideoGame`, `ImageObject`, `PropertyValue`, etc.) are **schema.org classes**. Before adding any new field or type, check schema.org for an existing match and use its canonical name.
+Entity field names (`name`, `datePublished`, `contentUrl`, `containsSeason`, `episodeNumber`, etc.) are **schema.org property names** — not arbitrary identifiers. Entity types (`Movie`, `TVSeries`, `ImageObject`, `PropertyValue`, etc.) are **schema.org classes**. Before adding any new field or type, check schema.org for an existing match and use its canonical name.
 
 Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 
@@ -19,7 +19,7 @@ Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 | [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
 | [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
-| [`TESTING.md`](TESTING.md) | Automated and manual testing guide for both components |
+| [`TESTING.md`](TESTING.md) | Manual testing and integration verification guide |
 
 ## Related Repositories
 
@@ -32,27 +32,14 @@ Component repositories are sibling directories locally and part of the [media-ce
 
 ## How to Use These Specs
 
-- **Reading:** Use these documents to understand data contracts before touching any code that reads or writes entity data (channel messages), `config.json`, or `data/images/`.
-- **Writing:** When a format decision changes, update the relevant spec here first, then update any affected component code and its `CLAUDE.md`.
-- **Cross-references:** Specs reference each other by filename (e.g. `DATA-FORMAT.md` links to `IMAGE-CACHING.md`). Component `CLAUDE.md` files link here by GitHub URL.
+**Specs are the authoritative contract.** When in doubt about a field name, message format, or behavior, the spec wins over the implementation. The Rust UI implements its WebSocket client from these documents — any deviation breaks the UI.
 
-### Reading the Specs
-
-- **Before writing any code that touches the WebSocket API** (channels, messages, join replies), read `API.md` in full.
-- **Before writing any playback, resume, or watch progress code**, read `PLAYBACK.md` in full.
-- **Before writing any code that serializes entities** (for channel pushes), read `DATA-FORMAT.md` in full.
-- **Before writing any image download or storage code**, read `IMAGE-CACHING.md` in full.
-- **When adding a new entity field or type**, check [schema.org](https://schema.org) first. Use the canonical schema.org property name if one fits. Only introduce a non-schema.org field if there is no reasonable match, and document the reason in `DATA-FORMAT.md`.
-- Field names (`name`, `datePublished`, `contentUrl`, `containsSeason`, etc.) and type names (`Movie`, `TVSeries`, `VideoGame`, `ImageObject`, `PropertyValue`) are schema.org identifiers — do not rename them.
-
-### Working with the Specs
-
-- **Specs are the authoritative contract.** The frontend team (and future agents) learn what this app produces by reading the specs. When in doubt about a field name, message format, or behavior, the spec wins over the implementation.
-- `API.md` specifies every channel topic, every client message, every server push, and every reply schema. The Rust UI implements its WebSocket client from this document — any deviation breaks the UI.
-- `PLAYBACK.md` specifies the MPV launch flags, IPC protocol, progress persistence intervals, and resume algorithm. Both the backend implementation and the UI's playback state display derive from this spec.
-- `DATA-FORMAT.md` specifies the JSON written by the backend. Follow field names and structure exactly.
-- `IMAGE-CACHING.md` specifies image roles, directory conventions, and remote URL patterns for each source (TMDB, Steam). Image `contentUrl` values in channel messages are absolute filesystem paths resolved by the serializer — the frontend reads them directly without path resolution.
-- `COMPONENTS.md` describes the overall system architecture and which component owns what. Refer to it when designing new features that affect the integration boundary.
+- **Before touching the WebSocket API** (channels, messages, join replies), read `API.md`.
+- **Before writing playback, resume, or watch progress code**, read `PLAYBACK.md`.
+- **Before serializing entities** (for channel pushes), read `DATA-FORMAT.md`.
+- **Before writing image download or storage code**, read `IMAGE-CACHING.md`.
+- **When adding a new entity field or type**, check [schema.org](https://schema.org) first. Use the canonical property name if one fits. Only introduce a non-schema.org field if there is no reasonable match, and document the reason in `DATA-FORMAT.md`.
+- **When a contract changes**, update the spec first, then update component code and its `CLAUDE.md`.
 
 ### Keeping the Specs Updated
 

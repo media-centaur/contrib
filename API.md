@@ -33,7 +33,7 @@ None for v1 — the backend runs locally and serves a single household. Authenti
 | Topic | Purpose |
 |-------|---------|
 | `library` | Media library data: full sync on join, incremental updates |
-| `playback` | Playback commands and state: play, pause, stop, progress |
+| `playback` | Playback commands and state: play, progress |
 
 ---
 
@@ -66,7 +66,9 @@ A batch of entity payloads with upsert semantics. Used for both initial sync bat
     {
       "@id": "550e8400-...",
       "entity": { "@type": "Movie", "name": "Blade Runner 2049", ... },
-      "progress": null
+      "progress": null,
+      "resumeTarget": { "action": "begin", "name": "Blade Runner 2049" },
+      "childTargets": null
     },
     {
       "@id": "660f9500-...",
@@ -77,13 +79,32 @@ A batch of entity payloads with upsert semantics. Used for both initial sync bat
         "episode_duration_seconds": 3200.0,
         "episodes_completed": 12,
         "episodes_total": 20
+      },
+      "resumeTarget": {
+        "action": "resume",
+        "targetId": "ep-uuid",
+        "name": "Who Is Alive?",
+        "seasonNumber": 2,
+        "episodeNumber": 3,
+        "positionSeconds": 1200.5,
+        "durationSeconds": 3200.0
+      },
+      "childTargets": {
+        "ep-uuid-1": null,
+        "ep-uuid-2": { "action": "resume", "positionSeconds": 1200.5, "durationSeconds": 3200.0 },
+        "ep-uuid-3": { "action": "begin" }
       }
     }
   ]
 }
 ```
 
-Each entity in the `entities` array follows the wrapper format defined in `DATA-FORMAT.md` (`{@id, entity}`), with an added `progress` field containing aggregated watch progress for that entity (or `null` if no progress exists). The UI replaces its local copy of each entity entirely (upsert).
+Each entity in the `entities` array follows the wrapper format defined in `DATA-FORMAT.md` (`{@id, entity}`), with additional fields:
+- `progress`: aggregated watch progress summary (or `null` if no progress exists)
+- `resumeTarget`: display hint for what will play next (see DATA-FORMAT.md Resume Target section; `null` when fully completed)
+- `childTargets`: per-child hints keyed by UUID (see DATA-FORMAT.md Child Targets section; `null` for single items)
+
+The UI replaces its local copy of each entity entirely (upsert).
 
 ### Server Push: `library:sync_complete`
 
@@ -147,13 +168,22 @@ Or if something is playing:
 
 ### Client Message: `play`
 
-Request playback of a specific entity. The backend determines the exact episode and position using the resume algorithm (see `PLAYBACK.md`).
+Request playback of any playable item by its UUID. The `entity_id` field can identify a top-level Entity, an Episode, a child Movie, or an Extra. The backend resolves the UUID, determines the correct file and resume position, and starts playback.
 
 ```json
 {
   "entity_id": "660f9500-..."
 }
 ```
+
+**UUID resolution order:**
+
+1. **Entity** — if a series (TV or Movie), the resume algorithm determines which child to play and where to start (see `PLAYBACK.md`). If a single item (Movie, VideoObject), checks progress for resume.
+2. **Episode** — loads the parent entity, checks WatchProgress for this specific episode, resumes if partially watched, otherwise plays from the beginning.
+3. **Movie (child)** — loads the parent MovieSeries entity, checks WatchProgress for this specific child movie, resumes if partially watched, otherwise plays from the beginning.
+4. **Extra** — plays from the beginning (no progress tracking for extras).
+
+The backend tries each lookup in order and uses the first match.
 
 **Reply:**
 
@@ -170,7 +200,7 @@ Request playback of a specific entity. The backend determines the exact episode 
 }
 ```
 
-Possible `action` values: `"resume"`, `"play_next"`, `"restart"`.
+Possible `action` values: `"resume"`, `"play_next"`, `"restart"`, `"play_episode"`, `"play_movie"`, `"play_extra"`.
 
 If playback cannot start:
 
@@ -182,52 +212,6 @@ If playback cannot start:
   }
 }
 ```
-
-### Client Message: `play_episode`
-
-Play a specific episode (bypasses resume algorithm). Used when the user selects an episode from the detail view.
-
-```json
-{
-  "entity_id": "660f9500-...",
-  "season_number": 2,
-  "episode_number": 5
-}
-```
-
-**Reply:** Same format as `play`.
-
-### Client Message: `pause`
-
-Toggle pause on the current playback.
-
-```json
-{}
-```
-
-**Reply:** `{"status": "ok"}`
-
-### Client Message: `stop`
-
-Stop the current playback and close MPV.
-
-```json
-{}
-```
-
-**Reply:** `{"status": "ok"}`
-
-### Client Message: `seek`
-
-Seek to an absolute position.
-
-```json
-{
-  "position_seconds": 600.0
-}
-```
-
-**Reply:** `{"status": "ok"}`
 
 ### Server Push: `playback:state_changed`
 
@@ -277,9 +261,32 @@ Sent when an entity's overall progress summary changes (e.g. an episode was mark
     "episode_duration_seconds": 3100.0,
     "episodes_completed": 13,
     "episodes_total": 20
+  },
+  "resumeTarget": {
+    "action": "begin",
+    "targetId": "ep-uuid",
+    "name": "Next Episode",
+    "seasonNumber": 2,
+    "episodeNumber": 5
   }
 }
 ```
+
+---
+
+## Resume Target
+
+The `resumeTarget` field is a display hint that tells the frontend what will play when the user hits "play" on an entity. It is computed server-side using the same resume algorithm that powers the `play` command, so the UI can show accurate hints (e.g. "Resume S2E3" or "Begin The Dark Knight") without issuing a play command.
+
+`resumeTarget` is included in:
+- `library:entities` — on each entity in the batch, alongside `progress`
+- `playback:entity_progress_updated` — alongside the updated `progress` summary
+
+When an entity is fully completed or has no playable content, `resumeTarget` is `null`. When all items would restart, it is also `null` (the UI should not suggest a re-watch as the default action).
+
+`childTargets` is included in `library:entities` only (not in progress updates). It provides per-child hints keyed by UUID so the frontend can display watch state on individual episodes or movies within a series.
+
+See `DATA-FORMAT.md` for the full field schemas, value types, and examples.
 
 ---
 
@@ -305,10 +312,8 @@ All client messages receive a reply with `status: "ok"` or `status: "error"`. Er
 
 | Reason | Meaning |
 |--------|---------|
-| `"not_found"` | Entity ID does not exist |
-| `"no_playable_content"` | Entity has no content_url (no files) |
-| `"not_playing"` | Pause/stop/seek sent but nothing is playing |
-| `"invalid_episode"` | The requested season/episode doesn't exist |
+| `"not_found"` | UUID does not match any entity, episode, movie, or extra |
+| `"no_playable_content"` | The resolved item has no content_url (no files) |
 
 > **Note:** Sending `play` while something is already playing silently stops the previous session and starts the new one. No error is returned.
 
@@ -329,10 +334,11 @@ UI → Backend:  join "playback"
 Backend → UI:  reply with state: "idle"
 ```
 
-### User plays a TV series (resume)
+### User plays a TV series (resume via entity UUID)
 
 ```
-UI → Backend:       push "play" {entity_id: "660f9500-..."}
+UI → Backend:       push "play" {entity_id: "660f9500-..."}     (entity UUID)
+Backend:            resolves UUID as Entity, runs resume algorithm
 Backend → UI:       reply {action: "resume", season: 2, episode: 3, position: 1200.5}
 Backend:            launches MPV, seeks to position
 Backend → UI:       push "playback:state_changed" {state: "playing", now_playing: {...}}
@@ -340,6 +346,16 @@ Backend → UI:       push "playback:progress" {position: 1202.3, ...}  (every 2
 ...
 Backend → UI:       push "playback:state_changed" {state: "idle"}     (MPV closed)
 Backend → UI:       push "playback:entity_progress_updated" {...}      (progress saved)
+```
+
+### User plays a specific episode (via episode UUID)
+
+```
+UI → Backend:       push "play" {entity_id: "ep-uuid-123"}     (episode UUID)
+Backend:            resolves UUID as Episode, checks progress for resume
+Backend → UI:       reply {action: "play_episode", season: 1, episode: 5, position: 0.0}
+Backend:            launches MPV
+Backend → UI:       push "playback:state_changed" {state: "playing", now_playing: {...}}
 ```
 
 ### Library updates while UI is connected

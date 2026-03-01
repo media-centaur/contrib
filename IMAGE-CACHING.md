@@ -4,6 +4,13 @@ This document specifies how artwork images are stored, referenced, and loaded in
 
 ---
 
+## Hard Rules
+
+1. **The frontend loads images directly from the filesystem.** The backend sends absolute filesystem paths in `contentUrl`; the frontend opens the files itself via GPUI's GPU-accelerated image loader. Image pixel data is never transferred over the WebSocket or any HTTP endpoint.
+2. **The backend's HTTP image endpoint (`/media-images/*`) is for the admin LiveView only.** The frontend must never use it.
+
+---
+
 ## Design Principles
 
 - **One copy per role, GPU scales.** Store a single high-quality image per role (poster, backdrop, logo). Never store multiple resolutions. GPUI renders via Vulkan — GPU texture scaling is free.
@@ -44,8 +51,6 @@ Key points for image caching:
 | `backdrop` | TMDB backdrop (16:9) | TMDB backdrop (16:9) | — |
 | `logo` | TMDB logo (transparent) | TMDB logo (transparent) | — |
 | `thumb` | — | Episode thumbnail | — |
-
-> **Planned:** VideoGame support will add Steam capsule (poster), Steam hero (backdrop), and SteamGridDB logo roles.
 
 ---
 
@@ -103,15 +108,6 @@ The manager app uses these patterns when downloading images:
 
 **Video Objects:** No standard source. User-provided thumbnails or frames extracted from video.
 
-> **Planned (Video Games / Steam):**
->
-> | Role | URL pattern |
-> |------|-------------|
-> | Poster | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg` |
-> | Backdrop | `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/library_hero.jpg` |
->
-> `{appid}` comes from `identifier` where `propertyID == "steam"`.
-
 ---
 
 ## Responsibilities
@@ -123,7 +119,7 @@ The manager app uses these patterns when downloading images:
 - Download images to `{images_dir}/{uuid}/{role}.{ext}`, where `images_dir` is resolved per watch directory via `Config.images_dir_for/1`
 - Update `contentUrl` in the `ImageObject` entry with the local path after successful download
 - Never overwrite a locally modified image without user confirmation
-- The `/media-images/*` endpoint searches all watch directories' image caches to serve images
+- Serve images over HTTP at `/media-images/*` (see [HTTP Endpoint](#http-endpoint) below)
 
 ### User-Interface App
 
@@ -131,6 +127,16 @@ The manager app uses these patterns when downloading images:
 - Read `contentUrl` for `backdrop` and `logo` when rendering detail view hero areas
 - If `contentUrl` is absent or the file does not exist, render a solid-color placeholder — no crash, no error
 - Never write to the `data/images/` directory
+
+---
+
+## HTTP Endpoint
+
+The backend serves images over HTTP at `/media-images/*` via `ImageServerPlug`. This is used by the admin LiveView for `<img>` tags. The frontend does not use this endpoint — it reads images directly from absolute `contentUrl` filesystem paths.
+
+**Request:** `GET /media-images/{uuid}/{role}.{ext}` (e.g. `/media-images/550e8400-.../poster.jpg`)
+
+The plug searches all configured watch directories' image caches for the requested file and returns the first match. Returns 404 if the file is not found in any cache. Path traversal (`..`) is rejected with 400.
 
 ---
 

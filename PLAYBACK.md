@@ -120,6 +120,7 @@ Watch progress is tracked per playable item — each movie and each TV episode h
 
 For movies: `season_number` and `episode_number` are both nil.
 For TV episodes: both are set. Progress is tracked per-episode, not per-season or per-series.
+For MovieSeries child movies: `season_number` is 0, `episode_number` is the 1-based ordinal (position in the series).
 
 ### Completion Threshold
 
@@ -167,7 +168,7 @@ The resume algorithm is a **pure function**: given an entity and its progress da
 
 ### Input
 
-- Entity (with type, seasons, episodes)
+- Entity (with type, seasons, episodes, or child movies)
 - All `WatchProgress` records for that entity
 
 ### Output
@@ -175,13 +176,13 @@ The resume algorithm is a **pure function**: given an entity and its progress da
 ```
 {:resume, content_url, position_seconds}   # resume partially watched item
 {:play_next, content_url, 0}               # start next unwatched item from beginning
-{:restart, content_url, 0}                 # series complete, restart from S01E01
+{:restart, content_url, 0}                 # series complete, restart from first item
 {:no_playable_content}                     # no content_url available
 ```
 
 ### Algorithm
 
-#### Movies (and MovieSeries entries)
+#### Movies
 
 1. If progress exists and `completed == false` → `{:resume, content_url, position_seconds}`
 2. If progress exists and `completed == true` → `{:play_next, content_url, 0}` (replay from start)
@@ -208,16 +209,50 @@ Episodes are ordered by `(season_number, episode_number)`. The algorithm walks t
 - All remaining episodes lack `content_url` → `{:no_playable_content}`
 - Only some seasons have files (gaps) → skip missing seasons, advance to the next available episode
 
-### "Play Series" User Flow
+#### MovieSeries
 
-When the user selects "Play" on a TVSeries card in the UI:
+Child movies are ordered by `(position, datePublished)`. The algorithm walks the movie list using the same logic as TV Series:
 
-1. UI sends `play:series:{entity_id}` to the backend
-2. Backend runs the resume algorithm
-3. Backend launches MPV with the determined episode and position
-4. Backend pushes playback state to the UI (what's playing, progress)
+1. **Find the last watched movie** — the movie with the most recent `last_watched_at` among all progress records for this series.
 
-The user doesn't choose an episode — the system picks up where they left off. Explicit episode selection (from the detail view) is a separate action that bypasses the resume algorithm.
+2. **If the last watched movie is not completed** → `{:resume, content_url, position_seconds}` (resume where they left off)
+
+3. **If the last watched movie is completed** → advance to the next movie in order:
+   - Next movie exists → `{:play_next, content_url, 0}`
+   - No more movies (series complete) → `{:restart, first_movie_content_url, 0}` (restart from first movie)
+
+4. **If no progress exists for any movie** → `{:play_next, first_movie_content_url, 0}` (start from first movie)
+
+**Storage key:** MovieSeries progress uses `season_number: 0, episode_number: ordinal` where ordinal is the 1-based position of the movie in the sorted list.
+
+**Edge cases:**
+
+- Child movie has no `content_url` → skip to the next movie with a `content_url`
+- All remaining movies lack `content_url` → `{:no_playable_content}`
+
+### UUID Resolution
+
+The `play` command accepts a single `entity_id` that can identify any playable thing. The backend resolves the UUID by trying lookups in this order:
+
+1. **Entity** — `Ash.get(Entity, uuid)`. If found:
+   - Series (TV or Movie): runs the full resume algorithm above
+   - Single item (Movie, VideoObject): checks progress for resume/play
+2. **Episode** — `Ash.get(Episode, uuid)`. If found: loads the parent entity via Season, checks WatchProgress for `(entity_id, season_number, episode_number)`, resumes if partially watched, otherwise plays from 0.
+3. **Movie (child)** — `Ash.get(Movie, uuid)`. If found: loads the parent MovieSeries entity, finds the movie's ordinal, checks WatchProgress for `(entity_id, 0, ordinal)`, resumes if partially watched, otherwise plays from 0.
+4. **Extra** — `Ash.get(Extra, uuid)`. If found: plays `content_url` from 0 (no progress tracking for extras).
+5. **None found** → `{:error, :not_found}`
+
+Items with `nil` content_url return `{:error, :no_playable_content}`.
+
+### "Play" User Flow
+
+When the user selects "Play" on any entity or child item:
+
+1. UI sends a `play` message with `{"entity_id": "..."}` payload on the `playback` channel. The UUID can identify an entity, episode, child movie, or extra.
+2. Backend resolves the UUID (see UUID Resolution above)
+3. Backend applies smart resume logic (resume algorithm for entities, per-item progress check for children)
+4. Backend launches MPV with the determined file and position
+5. Backend pushes playback state to the UI (what's playing, progress)
 
 ---
 

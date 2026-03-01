@@ -37,6 +37,9 @@ The library is represented as a JSON array of wrapped entities. This format is u
 |-------|------|-------------|
 | `@id` | `string` (UUID v4) | App-level unique identifier; stable across updates |
 | `entity` | `object` | A schema.org entity (see entity types below) |
+| `progress` | `object` or `null` | Aggregated watch progress summary (see Entity Progress Summary in API.md) |
+| `resumeTarget` | `object` or `null` | Display hint for what will play when the user hits "play" (see Resume Target below) |
+| `childTargets` | `object` or `null` | Per-child display hints keyed by child UUID (see Child Targets below); `null` for single items |
 
 The `@id` UUID is the stable key used for image directory names and cross-references. It must not change once assigned.
 
@@ -115,7 +118,7 @@ Additional fields:
 | `director` | `string` | Series-level director (optional; individual movies may differ) |
 | `hasPart` | `Movie[]` | Embedded ordered list of movies in the series |
 
-Child `Movie` objects inside `hasPart` use the same fields as standalone `Movie` entities. They are sorted by `datePublished` at display time in the UI.
+Child `Movie` objects inside `hasPart` include an `@id` (UUID) field for unique identification (used as key in `childTargets`), plus the same fields as standalone `Movie` entities. They are sorted by position then `datePublished`.
 
 Example:
 
@@ -176,6 +179,7 @@ Additional fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `@id` | `string` (UUID v4) | Unique identifier for this season |
 | `seasonNumber` | `integer` | Season index, 1-based |
 | `numberOfEpisodes` | `integer` | Episode count |
 | `name` | `string` | Optional season title |
@@ -186,6 +190,7 @@ Additional fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `@id` | `string` (UUID v4) | Unique identifier for this episode; used as key in `childTargets` |
 | `episodeNumber` | `integer` | Episode index, 1-based |
 | `name` | `string` | Episode title |
 | `duration` | `string` | ISO 8601 duration |
@@ -294,16 +299,81 @@ Identifiers are flattened for action template substitution as `identifier.{prope
 
 ---
 
-## Planned Entity Types
+### Resume Target
 
-The following types are defined in schema.org and planned for future implementation but are **not yet supported** by the backend.
+The `resumeTarget` field on the wrapper object tells the frontend what will play when the user hits "play" on this entity. It enables the UI to show hints like "Resume S2E3" or "Begin The Dark Knight" on entity cards without issuing a play command.
 
-### VideoGame — `schema.org/VideoGame`
+| Field | Type | Present when | Description |
+|-------|------|-------------|-------------|
+| `action` | `string` | Always | `"begin"` (start from beginning) or `"resume"` (continue from position) |
+| `name` | `string` | Always | Display name of the target (episode name, movie name, or entity name) |
+| `targetId` | `string` (UUID) | Series only | UUID of the child entity (episode or movie) that will play |
+| `seasonNumber` | `integer` | TV Series only | Season number of the target episode |
+| `episodeNumber` | `integer` | TV Series only | Episode number of the target episode |
+| `ordinal` | `integer` | MovieSeries only | 1-based position of the target movie in the series |
+| `total` | `integer` | MovieSeries only | Total number of playable movies in the series |
+| `positionSeconds` | `float` | `action: "resume"` only | Position to resume from |
+| `durationSeconds` | `float` | `action: "resume"` only | Total duration of the target |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `gamePlatform` | `string` | Platform name (`"PC"`, `"PlayStation 5"`) |
-| `publisher` | `string` | Publisher name |
+`resumeTarget` is `null` when:
+- The entity is fully completed (all episodes/movies watched)
+- The entity would restart from the beginning (implies re-watch, not a natural "next" action)
+- The entity has no playable content
+
+**Examples:**
+
+Movie, never watched:
+```json
+{ "action": "begin", "name": "Blade Runner 2049" }
+```
+
+Movie, partial progress:
+```json
+{ "action": "resume", "name": "Blade Runner 2049", "positionSeconds": 4500.0, "durationSeconds": 9840.0 }
+```
+
+TV Series, mid-watch:
+```json
+{ "action": "resume", "targetId": "ep-uuid", "name": "Who Is Alive?", "seasonNumber": 2, "episodeNumber": 3, "positionSeconds": 1200.5, "durationSeconds": 3600.0 }
+```
+
+MovieSeries, completed first movie:
+```json
+{ "action": "begin", "targetId": "movie-uuid", "name": "The Dark Knight", "ordinal": 2, "total": 3 }
+```
+
+---
+
+### Child Targets
+
+The `childTargets` field provides per-child resume hints so the frontend can display watch state on individual episodes or movies within a series. It is a map keyed by child UUID.
+
+Each value is either:
+- `null` — the child is completed
+- `{"action": "begin"}` — the child has no progress
+- `{"action": "resume", "positionSeconds": X, "durationSeconds": Y}` — the child has partial progress
+
+`childTargets` is `null` for single items (Movie, VideoObject) that have no children.
+
+**Example (TV Series):**
+
+```json
+{
+  "ep-uuid-1": null,
+  "ep-uuid-2": { "action": "resume", "positionSeconds": 1200, "durationSeconds": 3600 },
+  "ep-uuid-3": { "action": "begin" }
+}
+```
+
+**Example (MovieSeries):**
+
+```json
+{
+  "movie-uuid-1": null,
+  "movie-uuid-2": { "action": "resume", "positionSeconds": 4500, "durationSeconds": 9000 },
+  "movie-uuid-3": { "action": "begin" }
+}
+```
 
 ---
 
