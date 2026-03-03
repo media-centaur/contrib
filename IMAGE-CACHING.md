@@ -13,7 +13,7 @@ This document specifies how artwork images are stored, referenced, and loaded in
 
 ## Design Principles
 
-- **One copy per role, GPU scales.** Store a single high-quality image per role (poster, backdrop, logo). Never store multiple resolutions. GPUI renders via Vulkan — GPU texture scaling is free.
+- **One copy per role, sized to spec.** Store a single image per role, resized to the dimensions specified in [`IMAGE-SIZING.md`](IMAGE-SIZING.md). GPUI renders via Vulkan — GPU texture scaling handles the final fit to rendered elements.
 - **Remote URL + local path separation.** Each image record stores both the original remote URL and the local cached path. The manager app writes `url` during metadata fetch and `contentUrl` after the file is downloaded; the frontend reads only the local path.
 - **Always use an array.** `image` is always `ImageObject[]`, even when there is one image. This avoids a schema migration when additional roles are added.
 - **UUID-keyed directories.** Each entity's images live under `data/images/{entity-@id}/`. The entity `@id` is the sole key — no name-based paths.
@@ -104,7 +104,7 @@ The manager app uses these patterns when downloading images:
 | Backdrop | `https://image.tmdb.org/t/p/original/{backdrop_path}` |
 | Logo | `https://image.tmdb.org/t/p/original/{logo_path}` |
 
-`{poster_path}` etc. come from the TMDB API response (e.g. `/1E5baAaEse26fej7uHcjOgEE2t2.jpg`). Use `original` or `w780` for poster; `original` or `w1280` for backdrop.
+`{poster_path}` etc. come from the TMDB API response (e.g. `/1E5baAaEse26fej7uHcjOgEE2t2.jpg`). See [`IMAGE-SIZING.md`](IMAGE-SIZING.md) for recommended TMDB size variants and resize targets per role.
 
 **Video Objects:** No standard source. User-provided thumbnails or frames extracted from video.
 

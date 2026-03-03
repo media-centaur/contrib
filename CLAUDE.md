@@ -19,6 +19,7 @@ Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
 | [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
 | [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
 | [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
+| [`IMAGE-SIZING.md`](IMAGE-SIZING.md) | Recommended source dimensions per image role |
 | [`TESTING.md`](TESTING.md) | Manual testing and integration verification guide |
 
 ## Related Repositories
@@ -37,7 +38,7 @@ Component repositories are sibling directories locally and part of the [media-ce
 - **Before touching the WebSocket API** (channels, messages, join replies), read `API.md`.
 - **Before writing playback, resume, or watch progress code**, read `PLAYBACK.md`.
 - **Before serializing entities** (for channel pushes), read `DATA-FORMAT.md`.
-- **Before writing image download or storage code**, read `IMAGE-CACHING.md`.
+- **Before writing image download or storage code**, read `IMAGE-CACHING.md` and `IMAGE-SIZING.md`.
 - **When adding a new entity field or type**, check [schema.org](https://schema.org) first. Use the canonical property name if one fits. Only introduce a non-schema.org field if there is no reasonable match, and document the reason in `DATA-FORMAT.md`.
 - **When a contract changes**, update the spec first, then update component code and its `CLAUDE.md`.
 

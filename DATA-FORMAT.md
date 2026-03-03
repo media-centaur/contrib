@@ -116,11 +116,49 @@ Additional fields:
 | Field | Type | Description |
 |-------|------|-------------|
 | `director` | `string` | Series-level director (optional; individual movies may differ) |
-| `hasPart` | `Movie[]` | Embedded ordered list of movies in the series |
+| `hasPart` | `(Movie \| VideoObject)[]` | Child movies and series-level bonus features, discriminated by `@type`. Movies are sorted by position then `datePublished`; VideoObject extras follow after movies. |
 
 Child `Movie` objects inside `hasPart` include an `@id` (UUID) field for unique identification (used as key in `childTargets`), plus the same fields as standalone `Movie` entities. They are sorted by position then `datePublished`.
 
-Example:
+`VideoObject` items in `hasPart` are series-level bonus features (extras, featurettes, behind-the-scenes). They use the same format as `Movie.hasPart` extras (see VideoObject below). The backend appends them after all child movies.
+
+**MovieSeries with Extras:**
+
+```json
+{
+  "@id": "550e8400-e29b-41d4-a716-446655440025",
+  "entity": {
+    "@type": "MovieSeries",
+    "name": "Project A-ko",
+    "datePublished": "1986",
+    "genre": ["Animation", "Sci-Fi", "Comedy"],
+    "hasPart": [
+      {
+        "@type": "Movie",
+        "@id": "550e8400-e29b-41d4-a716-446655440026",
+        "name": "Project A-ko",
+        "datePublished": "1986",
+        "duration": "PT1H24M",
+        "contentUrl": "/media/movies/Project A-ko/Project A-ko.mkv"
+      },
+      {
+        "@type": "VideoObject",
+        "@id": "550e8400-e29b-41d4-a716-446655440027",
+        "name": "The Lost CD-ROM Video Game",
+        "contentUrl": "/media/movies/Project A-ko/Featurettes/The Lost CD-ROM Video Game.mkv"
+      },
+      {
+        "@type": "VideoObject",
+        "@id": "550e8400-e29b-41d4-a716-446655440028",
+        "name": "Music of Project A-ko",
+        "contentUrl": "/media/movies/Project A-ko/Featurettes/Music of Project A-ko.mkv"
+      }
+    ]
+  }
+}
+```
+
+Example (without extras):
 
 ```json
 {
