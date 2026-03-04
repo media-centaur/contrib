@@ -158,7 +158,7 @@ This means at most 60 seconds of progress can be lost if the system crashes duri
 
 #### Channel Push on Save
 
-Every database write triggers a `playback:entity_progress_updated` push to the frontend via PubSub. This includes the entity-level progress summary, resume target, and a `childTargets` delta identifying the affected child. The frontend receives progress updates at save cadence — not in real time. See `API.md` for the message format.
+Every database write triggers a `playback:entity_progress_updated` push to the frontend via PubSub. This includes the entity-level progress summary, resume target, a `childTargets` delta identifying the affected child, and `lastActivityAt` (the current timestamp). The frontend receives progress updates at save cadence — not in real time. See `API.md` for the message format.
 
 ---
 

@@ -68,7 +68,8 @@ A batch of entity payloads with upsert semantics. Used for both initial sync bat
       "entity": { "@type": "Movie", "name": "Blade Runner 2049", ... },
       "progress": null,
       "resumeTarget": { "action": "begin", "name": "Blade Runner 2049" },
-      "childTargets": null
+      "childTargets": null,
+      "lastActivityAt": "2026-01-15T10:00:00Z"
     },
     {
       "@id": "660f9500-...",
@@ -93,7 +94,8 @@ A batch of entity payloads with upsert semantics. Used for both initial sync bat
         "ep-uuid-1": null,
         "ep-uuid-2": { "action": "resume", "positionSeconds": 1200.5, "durationSeconds": 3200.0 },
         "ep-uuid-3": { "action": "begin" }
-      }
+      },
+      "lastActivityAt": "2026-03-01T20:00:00Z"
     }
   ]
 }
@@ -103,6 +105,7 @@ Each entity in the `entities` array follows the wrapper format defined in `DATA-
 - `progress`: aggregated watch progress summary (or `null` if no progress exists)
 - `resumeTarget`: display hint for what will play next (see DATA-FORMAT.md Resume Target section; `null` when fully completed)
 - `childTargets`: per-child hints keyed by UUID (see DATA-FORMAT.md Child Targets section; `null` for single items)
+- `lastActivityAt`: ISO 8601 timestamp of the most recent activity (date added or last watched) across the entity and its children; `null` if no timestamps exist
 
 The UI replaces its local copy of each entity entirely (upsert).
 
@@ -262,7 +265,8 @@ Sent on every `WatchProgress` database write — every ~60 seconds during active
   },
   "childTargets": {
     "ep-uuid": { "action": "resume", "positionSeconds": 1205.3, "durationSeconds": 3200.0 }
-  }
+  },
+  "lastActivityAt": "2026-03-04T20:15:00Z"
 }
 ```
 
@@ -278,6 +282,10 @@ The `resumeTarget` field is a display hint that tells the frontend what will pla
 `resumeTarget` is included in:
 - `library:entities` — on each entity in the batch, alongside `progress`
 - `playback:entity_progress_updated` — alongside the updated `progress` summary
+
+`lastActivityAt` is included in:
+- `library:entities` — on each entity in the batch (computed by `LastActivity`)
+- `playback:entity_progress_updated` — set to the current time when progress is saved
 
 When an entity is fully completed or has no playable content, `resumeTarget` is `null`. When all items would restart, it is also `null` (the UI should not suggest a re-watch as the default action).
 

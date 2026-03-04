@@ -77,7 +77,8 @@ Phoenix.PubSub.broadcast(MediaCentaur.PubSub, "playback:events",
     episode_duration_seconds: 7200.0,
     episodes_completed: 0,
     episodes_total: 1
-  }, %{"action" => "resume", "name" => "Test", "positionSeconds" => 120.5, "durationSeconds" => 7200.0}, nil})
+  }, %{"action" => "resume", "name" => "Test", "positionSeconds" => 120.5, "durationSeconds" => 7200.0}, nil,
+  DateTime.utc_now()})
 ```
 
 ---

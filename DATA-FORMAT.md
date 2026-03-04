@@ -40,6 +40,7 @@ The library is represented as a JSON array of wrapped entities. This format is u
 | `progress` | `object` or `null` | Aggregated watch progress summary (see Entity Progress Summary in API.md) |
 | `resumeTarget` | `object` or `null` | Display hint for what will play when the user hits "play" (see Resume Target below) |
 | `childTargets` | `object` or `null` | Per-child display hints keyed by child UUID (see Child Targets below); `null` for single items |
+| `lastActivityAt` | `string` (ISO 8601) or `null` | Most recent activity timestamp — newest of date added or last watched, across the entity and all its children (movies, episodes, extras) |
 
 The `@id` UUID is the stable key used for image directory names and cross-references. It must not change once assigned.
 
@@ -331,7 +332,8 @@ Identifiers are flattened for action template substitution as `identifier.{prope
     "aggregateRating": { "ratingValue": 8.0 },
     "contentUrl": "/media/movies/Blade Runner 2049/movie.mkv",
     "url": "https://www.themoviedb.org/movie/335984"
-  }
+  },
+  "lastActivityAt": "2026-03-01T20:00:00Z"
 }
 ```
 
