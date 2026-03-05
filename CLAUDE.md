@@ -1,71 +1,16 @@
-# Media Centaur — Specifications
+# Media Centaur — Contrib
 
-This repository (`media-centaur/specifications`) is the **authoritative source** for all cross-component specifications in the Media Centaur project. Every component repository references these documents.
+Supplemental guides and reference material for the Media Centaur project. Setup notes, hardware configuration, and cross-component testing procedures.
 
-## Data Model Foundation
-
-All entity data in this project is grounded in [schema.org](https://schema.org) vocabulary, serialised as [JSON-LD](https://json-ld.org/). This is the most important design constraint in the system.
-
-Entity field names (`name`, `datePublished`, `contentUrl`, `containsSeason`, `episodeNumber`, etc.) are **schema.org property names** — not arbitrary identifiers. Entity types (`Movie`, `TVSeries`, `ImageObject`, `PropertyValue`, etc.) are **schema.org classes**. Before adding any new field or type, check schema.org for an existing match and use its canonical name.
-
-Read `DATA-FORMAT.md` before writing any code that reads or writes entity data.
+Protocol specifications (API, data format, images, playback) are owned by the backend — see `backend/specs/`.
 
 ## Documents
 
 | File | Contents |
 |------|---------|
-| [`COMPONENTS.md`](COMPONENTS.md) | System architecture: backend, UI client, WebSocket communication |
-| [`API.md`](API.md) | Phoenix Channels WebSocket API: topics, messages, schemas |
-| [`PLAYBACK.md`](PLAYBACK.md) | MPV integration, watch progress model, resume algorithm |
-| [`DATA-FORMAT.md`](DATA-FORMAT.md) | JSON schema for entity data (channel messages) and `config.json` |
-| [`IMAGE-CACHING.md`](IMAGE-CACHING.md) | Image caching spec and directory conventions |
-| [`IMAGE-SIZING.md`](IMAGE-SIZING.md) | Recommended source dimensions per image role |
 | [`TESTING.md`](TESTING.md) | Manual testing and integration verification guide |
-
-## Related Repositories
-
-Component repositories are sibling directories locally and part of the [media-centaur](https://github.com/media-centaur) GitHub organization.
-
-| Repository | Local path | Description |
-|------------|------------|-------------|
-| `media-centaur/frontend` | `../frontend` | Rust/GPUI rendering client (active) |
-| `media-centaur/backend` | `../backend` | Backend: media library, playback, watch progress (active) |
-
-## How to Use These Specs
-
-**Specs are the authoritative contract.** When in doubt about a field name, message format, or behavior, the spec wins over the implementation. The Rust UI implements its WebSocket client from these documents — any deviation breaks the UI.
-
-- **Before touching the WebSocket API** (channels, messages, join replies), read `API.md`.
-- **Before writing playback, resume, or watch progress code**, read `PLAYBACK.md`.
-- **Before serializing entities** (for channel pushes), read `DATA-FORMAT.md`.
-- **Before writing image download or storage code**, read `IMAGE-CACHING.md` and `IMAGE-SIZING.md`.
-- **When adding a new entity field or type**, check [schema.org](https://schema.org) first. Use the canonical property name if one fits. Only introduce a non-schema.org field if there is no reasonable match, and document the reason in `DATA-FORMAT.md`.
-- **When a contract changes**, update the spec first, then update component code and its `CLAUDE.md`.
-
-### Keeping the Specs Updated
-
-When a contract changes — a new channel message, a new field, a new entity type, a changed image role, a new API endpoint — **update the spec first**, then update the implementation:
-
-1. Edit the relevant file in this repository (e.g. `API.md`).
-2. If no existing spec covers the change, **create a new spec file** and add it to the Documents table above and to `COMPONENTS.md`.
-3. Update the component implementation to match.
-4. Note in `COMPONENTS.md` or the relevant spec if the change affects the other component, so its `CLAUDE.md` can be updated too.
-
-Never let an implementation drift ahead of the spec. Never add a backend-to-UI contract (WebSocket message, file format, IPC protocol) without a spec documenting it.
-
-Any .md documentation created for this project should be kept up to date.
-
----
-
-## Version Control (Jujutsu)
-
-All repositories in media-centaur use **JJ (Jujutsu)** — never use raw `git` commands.
-
-- After completing a feature, set a change description: `jj describe -m "type: short description"`
-- Use conventional commit style matching existing history (e.g. `feat:`, `fix:`, `refactor:`). Keep it concise and high-level.
-- If follow-up amendments are needed for the same feature and the change hasn't been pushed to remote, amend the existing change rather than creating a new one.
-- When starting an unrelated feature, create a new change with `jj new` and describe it accordingly.
-- Adjust the description over time as the scope of the change becomes clearer.
+| [`mpv-setup.md`](mpv-setup.md) | MPV plugins, scripts, and remote hardware notes |
+| [`hyprland.md`](hyprland.md) | Hyprland window rules for Media Centaur + mpv coexistence |
 
 ## Plans
 
@@ -80,4 +25,4 @@ Every implementation plan must include a **Smoke Tests** section identifying whi
 - **Code structure IS documentation.** Ash resources define schemas; don't repeat field tables in markdown. `mix.exs` lists dependencies; don't duplicate that in docs.
 - **`@moduledoc` / doc comments are for what a module does and why.** Algorithm descriptions, API details, and design rationale belong in code, not markdown.
 - **CLAUDE.md is for agent behavior rules:** conventions, constraints, do/don't lists. Not architecture narrative.
-- **Specifications are for cross-component contracts.** Anything one component needs to know about another goes here.
+- **Specifications are for cross-component contracts.** Anything one component needs to know about another goes in `backend/specs/`.
