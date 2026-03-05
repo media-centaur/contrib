@@ -14,3 +14,4 @@ Every implementation plan must include a **Smoke Tests** section identifying whi
 - **`@moduledoc` / doc comments are for what a module does and why.** Algorithm descriptions, API details, and design rationale belong in code, not markdown.
 - **CLAUDE.md is for agent behavior rules:** conventions, constraints, do/don't lists. Not architecture narrative.
 - **Specifications are for cross-component contracts.** Anything one component needs to know about another goes in `backend/specs/`.
+- **Cross-repo links must use full GitHub URLs.** Each component is a separate GitHub repo. Relative `../` links break on GitHub's web UI. Use `https://github.com/media-centaur/<repo>/blob/main/<path>` (files) or `.../tree/main/<path>` (directories).
