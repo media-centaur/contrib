@@ -1,9 +1,9 @@
 # Testing Guide
 
-This document covers manual testing procedures for independent and integrated verification of the Media Centaur system.
+Manual testing procedures for independent and integrated verification of the Media Centaur system.
 
 For automated test organization, commands, and strategy, see each component's `CLAUDE.md`:
-- **Backend:** `backend/CLAUDE.md` → Testing Strategy section
+- **Backend:** `backend/CLAUDE.md` — Testing Strategy section
 - **Frontend:** `frontend/CLAUDE.md`
 
 ---
@@ -98,7 +98,7 @@ The UI starts with an empty library and attempts to connect to the backend. When
 
 ## Integration Testing
 
-### Full stack test
+### Full stack
 
 1. **Start the backend:**
    ```bash
@@ -121,8 +121,8 @@ The UI starts with an empty library and attempts to connect to the backend. When
    - The pipeline processes it (detection → search → metadata → images)
    - The UI receives a `library:entities` push and displays the new entity
 
-5. **Verify playback (requires MPV installed):**
+5. **Verify playback (requires mpv):**
    - Select an entity in the UI and trigger play
-   - The backend launches MPV and pushes `playback:state_changed`
+   - The backend launches mpv and pushes `playback:state_changed`
    - Entity progress updates appear on each DB save (~60s interval, and on pause/stop/EOF)
-   - Closing MPV triggers `playback:state_changed` with `state: "idle"`
+   - Closing mpv triggers `playback:state_changed` with `state: "idle"`

@@ -1,16 +1,4 @@
-# Media Centaur — Contrib
-
-Supplemental guides and reference material for the Media Centaur project. Setup notes, hardware configuration, and cross-component testing procedures.
-
-Protocol specifications (API, data format, images, playback) are owned by the backend — see `backend/specs/`.
-
-## Documents
-
-| File | Contents |
-|------|---------|
-| [`TESTING.md`](TESTING.md) | Manual testing and integration verification guide |
-| [`mpv-setup.md`](mpv-setup.md) | MPV plugins, scripts, and remote hardware notes |
-| [`hyprland.md`](hyprland.md) | Hyprland window rules for Media Centaur + mpv coexistence |
+# Contrib — Agent Instructions
 
 ## Plans
 

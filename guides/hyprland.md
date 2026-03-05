@@ -26,6 +26,6 @@ windowrule {
 }
 ```
 
-**Why not `fullscreen = on` for both?** Hyprland enforces one fullscreen window per workspace. When mpv claims the fullscreen slot, the frontend loses it and can't recover when mpv exits — it shrinks to a small floating window.
+> **Why not `fullscreen = on` for both?** Hyprland enforces one fullscreen window per workspace. When mpv claims the fullscreen slot, the frontend loses it and can't recover when mpv exits — it shrinks to a small floating window.
 
-**Why not `fullscreen_state = 0 2`?** Tested — it still conflicts with mpv's fullscreen. The frontend loses its fullscreen state when mpv closes.
+> **Why not `fullscreen_state = 0 2`?** Tested — it still conflicts with mpv's fullscreen. The frontend loses its fullscreen state when mpv closes.
