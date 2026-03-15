@@ -15,6 +15,7 @@ windowrule {
     float = on
     size = 3840 2160
     move = 0 0
+    workspace = 5
 }
 
 # mpv — float fullscreen so it doesn't disrupt media center layout
@@ -23,6 +24,7 @@ windowrule {
     match:class = mpv
     float = on
     fullscreen = on
+    workspace = 5
 }
 ```
 
