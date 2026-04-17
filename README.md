@@ -1,16 +1,27 @@
-# Media Centaur — Contrib
+# Media Centarr — Contrib
 
-Supplemental guides and reference material for the [Media Centaur](https://github.com/media-centaur) project — a free, open-source media center for Linux.
+Supplemental ecosystem material for the [Media Centarr](https://github.com/media-centarr/media-centarr) project — a free, open-source media center for Linux.
+
+This repo is a sibling of the main app repo. It holds configs, scripts, and setup guides for the tools Media Centarr runs *alongside* — mpv, hardware remotes, Hyprland, and other integrations.
+
+## Contents
+
+| Directory | Purpose |
+|-----------|---------|
+| [`mpv/`](mpv/) | Media Centarr-authored mpv configuration and Lua scripts (copy to `~/.config/mpv/`) |
+| [`parser-reference/`](parser-reference/) | Reference material for the filename parser — scene standards, codec tags, streaming service tags |
+| [`guides/`](guides/) | User-facing setup walkthroughs — see table below |
 
 ## Guides
 
 | Guide | Description |
 |-------|-------------|
+| [MPV Setup](guides/mpv-setup.md) | Recommended external mpv plugins (uosc, mpv-mpris) that complement the `mpv/` configs |
+| [Hyprland](guides/hyprland.md) | Window rules for Media Centarr + mpv coexistence on Hyprland |
+| [FLIRC & Sofabaton](guides/flirc-sofabaton.md) | IR remote receiver pairing and key mapping |
 | [Testing](guides/testing.md) | Manual testing and integration verification procedures |
-| [Hyprland](guides/hyprland.md) | Window rules for Media Centaur + mpv coexistence |
-| [MPV Setup](guides/mpv-setup.md) | MPV plugins, scripts, and remote hardware configuration |
 
 ## Related
 
-- **Protocol specifications** (API, data formats, images, playback) live in [`backend/specs/`](https://github.com/media-centaur/backend/tree/main/specs)
-- **Automated test strategy** is documented in each component's `CLAUDE.md`
+- **Main app repo:** [`media-centarr/media-centarr`](https://github.com/media-centarr/media-centarr) — the Phoenix application.
+- **Protocol specifications** (API, data formats, images, playback) live in the main app repo under `specs/`.
