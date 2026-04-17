@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# scripts/link — integrate the running stack with Media Centarr.
+#
+# Run this after `docker compose up -d`. It:
+#   1. waits for Prowlarr and qBittorrent to report healthy
+#   2. sets qBittorrent's admin password to a known default ('mediacentarr')
+#   3. reads Prowlarr's generated API key
+#   4. registers qBittorrent as a download client in Prowlarr
+#   5. prints the settings to paste into Media Centarr
+#
+# Idempotent — safe to re-run. If the password was already set, the
+# script just confirms the integration is in place.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# ─── Load .env ──────────────────────────────────────────────────────
+if [[ ! -f .env ]]; then
+    echo "error: .env not found. copy .env.example first:" >&2
+    echo "  cp .env.example .env" >&2
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+PROWLARR_URL="http://localhost:${PROWLARR_PORT:-9696}"
+QBIT_URL="http://localhost:${QBIT_PORT:-8080}"
+QBIT_NEW_PASSWORD="mediacentarr"
+
+# ─── Dependency check ───────────────────────────────────────────────
+for cmd in curl jq docker; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "error: '$cmd' is required but not installed." >&2
+        exit 1
+    fi
+done
+
+# ─── Helpers ────────────────────────────────────────────────────────
+log() { echo "→ $*" >&2; }
+
+wait_for() {
+    local name="$1" url="$2" attempts=60
+    log "waiting for $name at $url"
+    for ((i=1; i<=attempts; i++)); do
+        if curl -fsS -o /dev/null --max-time 2 "$url"; then
+            log "$name ready"
+            return 0
+        fi
+        sleep 2
+    done
+    echo "error: $name did not become ready within $((attempts*2))s" >&2
+    exit 1
+}
+
+# ─── 1. Wait for services ───────────────────────────────────────────
+wait_for "prowlarr" "${PROWLARR_URL}/ping"
+wait_for "qbittorrent" "${QBIT_URL}/api/v2/app/version"
+
+# ─── 2. Set qBittorrent password ────────────────────────────────────
+qbit_cookie=$(mktemp)
+trap 'rm -f "$qbit_cookie"' EXIT
+
+qbit_login() {
+    local user="$1" pass="$2"
+    local body
+    body=$(curl -fsS -c "$qbit_cookie" \
+        --data-urlencode "username=${user}" \
+        --data-urlencode "password=${pass}" \
+        "${QBIT_URL}/api/v2/auth/login" || echo "Fails")
+    [[ "$body" == "Ok." ]]
+}
+
+if qbit_login admin "$QBIT_NEW_PASSWORD"; then
+    log "qbittorrent password already set to default"
+else
+    temp_pass=$(docker logs qbittorrent 2>&1 \
+        | grep -oE 'temporary password[^:]*: [^ ]+' \
+        | tail -1 \
+        | awk '{print $NF}')
+    if [[ -z "$temp_pass" ]]; then
+        echo "error: could not find qBittorrent temp password in docker logs." >&2
+        echo "       the default ('mediacentarr') also doesn't work." >&2
+        echo "       reset qBittorrent: docker compose down && rm -rf config/qbittorrent && docker compose up -d" >&2
+        exit 1
+    fi
+    log "found qbittorrent temp password; logging in"
+    qbit_login admin "$temp_pass" || { echo "error: qbit login with temp password failed" >&2; exit 1; }
+    log "setting qbittorrent password to '${QBIT_NEW_PASSWORD}'"
+    # setPreferences expects form field 'json' with a JSON string
+    prefs=$(jq -nc --arg pw "$QBIT_NEW_PASSWORD" '{web_ui_password: $pw}')
+    curl -fsS -b "$qbit_cookie" \
+        --data-urlencode "json=${prefs}" \
+        "${QBIT_URL}/api/v2/app/setPreferences" > /dev/null
+fi
+
+# ─── 3. Read Prowlarr API key ───────────────────────────────────────
+api_key_file="config/prowlarr/config.xml"
+if [[ ! -f "$api_key_file" ]]; then
+    echo "error: $api_key_file not found — has Prowlarr finished its first-run setup?" >&2
+    exit 1
+fi
+api_key=$(grep -oE '<ApiKey>[^<]+' "$api_key_file" | head -1 | sed 's/<ApiKey>//')
+if [[ -z "$api_key" ]]; then
+    echo "error: could not extract ApiKey from $api_key_file" >&2
+    exit 1
+fi
+
+# ─── 4. Register qBittorrent in Prowlarr ────────────────────────────
+# Check for an existing qBittorrent client so re-runs don't duplicate.
+existing=$(curl -fsS -H "X-Api-Key: $api_key" \
+    "${PROWLARR_URL}/api/v1/downloadclient" \
+    | jq '[.[] | select(.implementation == "QBittorrent")] | length')
+
+if [[ "$existing" -gt 0 ]]; then
+    log "qbittorrent already registered in prowlarr"
+else
+    log "registering qbittorrent in prowlarr"
+    payload=$(jq -nc --arg pw "$QBIT_NEW_PASSWORD" '{
+        enable: true,
+        protocol: "torrent",
+        priority: 1,
+        removeCompletedDownloads: false,
+        removeFailedDownloads: true,
+        name: "qBittorrent",
+        implementation: "QBittorrent",
+        implementationName: "qBittorrent",
+        configContract: "QBittorrentSettings",
+        fields: [
+            { name: "host", value: "qbittorrent" },
+            { name: "port", value: 8080 },
+            { name: "useSsl", value: false },
+            { name: "urlBase", value: "" },
+            { name: "username", value: "admin" },
+            { name: "password", value: $pw },
+            { name: "category", value: "" },
+            { name: "priority", value: 0 },
+            { name: "initialState", value: 0 },
+            { name: "sequentialOrder", value: false },
+            { name: "firstAndLast", value: false }
+        ],
+        tags: []
+    }')
+    curl -fsS -X POST \
+        -H "X-Api-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "$payload" \
+        "${PROWLARR_URL}/api/v1/downloadclient" > /dev/null
+fi
+
+# ─── 5. Print copy-paste block ──────────────────────────────────────
+cat <<EOF
+
+============================================================
+  Media Centarr integration — paste these into Settings
+============================================================
+
+  Open Media Centarr and go to Settings.
+
+  ── Prowlarr ────────────────────────────────────────────
+    URL:       ${PROWLARR_URL}
+    API key:   ${api_key}
+
+  ── qBittorrent (enables /download live queue) ──────────
+    Host:      localhost
+    Port:      ${QBIT_PORT:-8080}
+    Username:  admin
+    Password:  ${QBIT_NEW_PASSWORD}
+
+    Note: this is the default password set by scripts/link.
+    Media Centarr stores download-client passwords in plaintext
+    on disk. For a LAN-only setup this is fine — you do not
+    need to change it. If you prefer, change it in
+    qBittorrent's Settings → Web UI, then update it in
+    Media Centarr's Settings page too.
+
+============================================================
+EOF

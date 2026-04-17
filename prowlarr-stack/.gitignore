@@ -1,0 +1,13 @@
+# User's live environment — never commit
+.env
+
+# Runtime container state — generated on first boot
+config/
+
+# Default data tree (when MEDIA_ROOT=./data) — don't commit downloads/media
+data/
+
+# Editor / OS artifacts
+.DS_Store
+*.swp
+*~

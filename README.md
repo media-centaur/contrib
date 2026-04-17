@@ -10,6 +10,7 @@ This repo is a sibling of the main app repo. It holds configs, scripts, and setu
 |-----------|---------|
 | [`mpv/`](mpv/) | Media Centarr-authored mpv configuration and Lua scripts (copy to `~/.config/mpv/`) |
 | [`parser-reference/`](parser-reference/) | Reference material for the filename parser — scene standards, codec tags, streaming service tags |
+| [`prowlarr-stack/`](prowlarr-stack/) | Docker compose template for the acquisition stack — Prowlarr + qBittorrent + FlareSolverr, auto-links to Media Centarr |
 | [`guides/`](guides/) | User-facing setup walkthroughs — see table below |
 
 ## Guides
