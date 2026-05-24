@@ -1,4 +1,4 @@
--- track-menu.lua — Two-column audio/subtitle track selector overlay
+-- track-menu.lua — Three-column audio / subtitle / sound-processing selector overlay
 -- Glassmorphism-inspired ASS rendering, forced key bindings while open
 --
 -- Logging: run mpv with --msg-level=track_menu=trace to see all debug output
@@ -32,6 +32,17 @@ local cfg = {
     active_color  = "FF9F4B",                          -- active marker color
 }
 
+-- Sound column: live audio-processing toggles. On/off state is derived from
+-- mpv's actual `af` filter list (see filter_present), NOT a private boolean,
+-- so the column stays in sync with the `n` keybind in input.conf that toggles
+-- the same labeled filters. Both apply instantly mid-playback.
+-- dialoguenhance needs stereo in; mpv auto-inserts the downmix, so this is
+-- safe on 5.1/7.1 sources too (verified) — no explicit aresample needed.
+local sound_items = {
+    { name = "Night mode",     label = "dynaudnorm", filter = "@dynaudnorm:dynaudnorm=f=500:g=31:p=0.9:m=4:s=0" },
+    { name = "Dialogue boost", label = "dialog",     filter = "@dialog:dialoguenhance" },
+}
+
 -- ── State ───────────────────────────────────────────────────────────
 local state = {
     visible     = false,
@@ -39,6 +50,7 @@ local state = {
     column      = "sub",       -- "audio" or "sub"
     audio_idx   = 1,
     sub_idx     = 1,
+    sound_idx   = 1,
     audio_scroll = 0,
     sub_scroll   = 0,
     audio_tracks = {},
@@ -58,6 +70,14 @@ end
 local function truncate(s, max)
     if #s <= max then return s end
     return s:sub(1, max - 3) .. "..."
+end
+
+-- True if an audio filter with the given label is in the live chain.
+local function filter_present(label)
+    for _, f in ipairs(mp.get_property_native("af", {})) do
+        if f.label == label then return true end
+    end
+    return false
 end
 
 local function format_track(t)
@@ -142,6 +162,7 @@ end
 -- ── Scroll ──────────────────────────────────────────────────────────
 
 local function adjust_scroll(col)
+    if col == "sound" then return end  -- sound column never scrolls (few items)
     local idx, scroll, count
     if col == "audio" then
         idx = state.audio_idx
@@ -208,14 +229,16 @@ local function render()
 
     local a_count = #state.audio_tracks
     local s_count = #state.sub_tracks
+    local snd_count = #sound_items
     local max_rows = math.max(
         math.min(cfg.max_visible, a_count),
-        math.min(cfg.max_visible, s_count)
+        math.min(cfg.max_visible, s_count),
+        math.min(cfg.max_visible, snd_count)
     )
     if max_rows == 0 then max_rows = 1 end
 
     -- Panel dimensions
-    local panel_w = pad_x * 2 + col_width * 2 + col_gap
+    local panel_w = pad_x * 2 + col_width * 3 + col_gap * 2
     local header_h = header_size + math.floor(12 * scale)
     local panel_h = pad_y * 2 + header_h + max_rows * line_height + math.floor(8 * scale)
     local corner_r = math.floor(8 * scale)
@@ -249,6 +272,7 @@ local function render()
     -- Column positions
     local col1_x = px + pad_x
     local col2_x = col1_x + col_width + col_gap
+    local col3_x = col2_x + col_width + col_gap
     local top_y = py + pad_y
 
     -- Headers
@@ -267,6 +291,7 @@ local function render()
 
     draw_header(col1_x, top_y, "Audio", state.column == "audio")
     draw_header(col2_x, top_y, "Subtitles", state.column == "sub")
+    draw_header(col3_x, top_y, "Sound", state.column == "sound")
 
     local list_y = top_y + header_h
 
@@ -344,10 +369,53 @@ local function render()
         end
     end
 
+    -- Draw the Sound column (live audio-processing toggles)
+    local function draw_sound_column(x, y, is_active)
+        for i, item in ipairs(sound_items) do
+            local row_y = y + (i - 1) * line_height
+            local is_cursor = is_active and (i == state.sound_idx)
+            local on = filter_present(item.label)
+
+            -- Highlight bar
+            local hl_pad = math.floor(6 * scale)
+            local hl_r = math.floor(4 * scale)
+            if is_cursor then
+                ass:new_event()
+                ass:pos(0, 0)
+                ass:append("{\\an7\\bord0\\shad0" ..
+                    ass_color(cfg.hl_color) .. ass_alpha(cfg.hl_alpha) ..
+                    "\\p1}")
+                ass:draw_start()
+                ass:round_rect_cw(x - hl_pad, row_y, x + col_width + hl_pad, row_y + line_height - 2, hl_r)
+                ass:draw_stop()
+            end
+
+            -- ON state reuses the active-track marker/colour
+            local prefix = on and "● " or "   "
+            local color = is_cursor and cfg.bright_color or cfg.text_color
+            local prefix_color = on and cfg.active_color or color
+            local text_offset = math.floor(2 * scale)
+            local label_indent = math.floor(28 * scale)
+
+            ass:new_event()
+            ass:pos(x, row_y + text_offset)
+            ass:append("{\\an7\\bord0\\shad0\\fs" .. font_size ..
+                "\\fnsans-serif" ..
+                ass_color(prefix_color) .. "}" .. prefix)
+
+            ass:new_event()
+            ass:pos(x + label_indent, row_y + text_offset)
+            ass:append("{\\an7\\bord0\\shad0\\fs" .. font_size ..
+                "\\fnsans-serif" ..
+                ass_color(color) .. "}" .. item.name .. ": " .. (on and "ON" or "OFF"))
+        end
+    end
+
     draw_column(col1_x, list_y, state.audio_tracks, state.audio_idx,
                 state.audio_scroll, state.column == "audio", "(no audio tracks)")
     draw_column(col2_x, list_y, state.sub_tracks, state.sub_idx,
                 state.sub_scroll, state.column == "sub", nil)
+    draw_sound_column(col3_x, list_y, state.column == "sound")
 
     -- Apply overlay
     msg.trace("render: creating overlay, ass length=" .. #ass.text)
@@ -367,24 +435,30 @@ end
 local function get_active_list()
     if state.column == "audio" then
         return state.audio_tracks
-    else
+    elseif state.column == "sub" then
         return state.sub_tracks
+    else
+        return sound_items
     end
 end
 
 local function get_cursor()
     if state.column == "audio" then
         return state.audio_idx
-    else
+    elseif state.column == "sub" then
         return state.sub_idx
+    else
+        return state.sound_idx
     end
 end
 
 local function set_cursor(val)
     if state.column == "audio" then
         state.audio_idx = val
-    else
+    elseif state.column == "sub" then
         state.sub_idx = val
+    else
+        state.sound_idx = val
     end
 end
 
@@ -399,19 +473,35 @@ local function move_cursor(delta)
     render()
 end
 
-local function switch_column(col)
-    msg.trace("switch_column: " .. col)
-    if col == "audio" and #state.audio_tracks == 0 then return end
-    state.column = col
+local COLUMNS = { "audio", "sub", "sound" }
+
+local function step_column(delta)
+    local idx = 1
+    for i, c in ipairs(COLUMNS) do
+        if c == state.column then idx = i break end
+    end
+    idx = clamp(idx + delta, 1, #COLUMNS)
+    state.column = COLUMNS[idx]
+    msg.trace("step_column: -> " .. state.column)
     render()
 end
 
-local function select_track()
+local function activate()
+    -- Sound column: toggle the focused audio filter instead of selecting a track
+    if state.column == "sound" then
+        local item = sound_items[state.sound_idx]
+        if not item then return end
+        msg.info("activate: toggle sound item " .. item.name)
+        mp.commandv("af", "toggle", item.filter)
+        render()
+        return
+    end
+
     local list = get_active_list()
     if #list == 0 then return end
     local track = list[get_cursor()]
     if not track then return end
-    msg.info("select_track: col=" .. state.column .. " id=" .. track.id .. " label=" .. track.label)
+    msg.info("activate: col=" .. state.column .. " id=" .. track.id .. " label=" .. track.label)
 
     if state.column == "audio" then
         if track.id == 0 then
@@ -451,9 +541,9 @@ local function open_menu()
 
     bind("up",    "track-menu-up",    function() move_cursor(-1) end)
     bind("down",  "track-menu-down",  function() move_cursor(1) end)
-    bind("left",  "track-menu-left",  function() switch_column("audio") end)
-    bind("right", "track-menu-right", function() switch_column("sub") end)
-    bind("enter", "track-menu-enter", select_track)
+    bind("left",  "track-menu-left",  function() step_column(-1) end)
+    bind("right", "track-menu-right", function() step_column(1) end)
+    bind("enter", "track-menu-enter", activate)
     bind("esc",   "track-menu-esc",   function() close_menu() end)
     bind("tab",   "track-menu-tab",   function() close_menu() end)
 
@@ -488,6 +578,10 @@ mp.observe_property("osd-width", "number", function()
     if state.visible then render() end
 end)
 mp.observe_property("osd-height", "number", function()
+    if state.visible then render() end
+end)
+-- Keep the Sound column live when filters are toggled via the `n` keybind
+mp.observe_property("af", "native", function()
     if state.visible then render() end
 end)
 

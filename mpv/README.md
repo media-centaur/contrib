@@ -16,7 +16,7 @@ After editing any file here, re-copy the changed ones to your runtime config. Th
 |------|---------|
 | [`mpv.conf`](mpv.conf) | Player settings — Vulkan rendering, subtitle/audio language, OSD |
 | [`input.conf`](input.conf) | Key bindings (section-commented, one concern per block) |
-| [`scripts/track-menu.lua`](scripts/track-menu.lua) | Two-column audio/subtitle track selector overlay |
+| [`scripts/track-menu.lua`](scripts/track-menu.lua) | Three-column selector overlay — audio tracks, subtitles, and live sound toggles (night mode, dialogue boost) |
 | [`scripts/skip-intro.lua`](scripts/skip-intro.lua) | Chapter-based intro skip button |
 
 ## Related guides
