@@ -5,6 +5,7 @@
 
 local msg = mp.msg
 local assdraw = require("mp.assdraw")
+local utils = require("mp.utils")
 
 msg.info("track-menu.lua loaded")
 
@@ -32,16 +33,28 @@ local cfg = {
     active_color  = "FF9F4B",                          -- active marker color
 }
 
--- Sound column: live audio-processing toggles. On/off state is derived from
--- mpv's actual `af` filter list (see filter_present), NOT a private boolean,
--- so the column stays in sync with the `n` keybind in input.conf that toggles
--- the same labeled filters. Both apply instantly mid-playback.
--- dialoguenhance needs stereo in; mpv auto-inserts the downmix, so this is
+-- ── Sound processing ────────────────────────────────────────────────
+-- track-menu owns the managed audio filters (see the manager block after
+-- render) so the limiter is always kept last and choices persist, whether
+-- toggled from the menu or the `n` keybind.
+--
+-- dialoguenhance needs stereo in; mpv auto-inserts the downmix, so it is
 -- safe on 5.1/7.1 sources too (verified) — no explicit aresample needed.
-local sound_items = {
-    { name = "Night mode",     label = "dynaudnorm", filter = "@dynaudnorm:dynaudnorm=f=500:g=31:p=0.9:m=4:s=0" },
-    { name = "Dialogue boost", label = "dialog",     filter = "@dialog:dialoguenhance" },
+
+-- Fixed-order filter specs (reconcile rebuilds the chain so @limiter is last).
+local SPECS = {
+    dialog     = "@dialog:dialoguenhance",
+    dynaudnorm = "@dynaudnorm:dynaudnorm=f=500:g=31:p=0.9:m=4:s=0",
 }
+-- Transparent true-peak limiter, auto-applied whenever any sound filter is on.
+local LIMITER = "@limiter:alimiter=limit=0.95:level=false"
+
+-- Menu display order (Sound column); on/off lives in `sound_on`.
+local sound_items = {
+    { name = "Night mode",     label = "dynaudnorm" },
+    { name = "Dialogue boost", label = "dialog" },
+}
+local sound_on = { dynaudnorm = false, dialog = false }
 
 -- ── State ───────────────────────────────────────────────────────────
 local state = {
@@ -70,14 +83,6 @@ end
 local function truncate(s, max)
     if #s <= max then return s end
     return s:sub(1, max - 3) .. "..."
-end
-
--- True if an audio filter with the given label is in the live chain.
-local function filter_present(label)
-    for _, f in ipairs(mp.get_property_native("af", {})) do
-        if f.label == label then return true end
-    end
-    return false
 end
 
 local function format_track(t)
@@ -374,7 +379,7 @@ local function render()
         for i, item in ipairs(sound_items) do
             local row_y = y + (i - 1) * line_height
             local is_cursor = is_active and (i == state.sound_idx)
-            local on = filter_present(item.label)
+            local on = sound_on[item.label]
 
             -- Highlight bar
             local hl_pad = math.floor(6 * scale)
@@ -428,6 +433,105 @@ local function render()
     state.overlay.data = ass.text
     local ok, err = state.overlay:update()
     msg.debug("render: overlay update result=" .. tostring(ok) .. " err=" .. tostring(err))
+end
+
+-- ── Sound filters: persistence + reconcile ──────────────────────────
+-- track-menu owns the managed audio filters so @limiter is always last and
+-- choices persist, whether toggled from the menu or the `n` keybind (which
+-- routes here via the track-menu-toggle-sound script-message).
+
+-- Runtime state lives outside the (version-controlled) config dir, in the XDG
+-- state dir. NOTE: mpv's "~~state/" prefix only expands when used alone (not
+-- with a filename appended) in this build, so use reliable "~/" expansion.
+local STATE_PATH = mp.command_native({ "expand-path", "~/.local/state/mpv/sound-toggles.json" })
+
+-- Directory of the current file, or nil for streams/protocols (no persistence).
+local function current_dir()
+    local path = mp.get_property("path")
+    if not path or path:find("://") then return nil end
+    local dir = utils.split_path(path)
+    if not dir or dir == "" or dir == "." then return nil end
+    return dir
+end
+
+local function read_store()
+    local f = io.open(STATE_PATH, "r")
+    if not f then return {} end
+    local data = f:read("*a"); f:close()
+    local t = utils.parse_json(data or "")
+    return type(t) == "table" and t or {}
+end
+
+local function write_store(store)
+    local function attempt()
+        local f = io.open(STATE_PATH, "w")
+        if not f then return false end
+        f:write(utils.format_json(store)); f:close()
+        return true
+    end
+    if attempt() then return true end
+    os.execute('mkdir -p "' .. (utils.split_path(STATE_PATH)) .. '"')  -- ensure dir, retry
+    return attempt()
+end
+
+local function save_state()
+    local dir = current_dir()
+    if not dir then return end
+    local store = read_store()
+    store[dir] = { dynaudnorm = sound_on.dynaudnorm, dialog = sound_on.dialog }
+    if write_store(store) then
+        msg.debug("save_state: " .. dir)
+    else
+        msg.warn("save_state: cannot write " .. STATE_PATH)
+    end
+end
+
+-- Rebuild the managed chain in fixed order so @limiter is always last.
+local function reconcile()
+    mp.commandv("af", "remove", "@dialog")
+    mp.commandv("af", "remove", "@dynaudnorm")
+    mp.commandv("af", "remove", "@limiter")
+    if sound_on.dialog     then mp.commandv("af", "add", SPECS.dialog) end
+    if sound_on.dynaudnorm then mp.commandv("af", "add", SPECS.dynaudnorm) end
+    if sound_on.dialog or sound_on.dynaudnorm then
+        mp.commandv("af", "add", LIMITER)
+    end
+end
+
+local function name_for(label)
+    for _, it in ipairs(sound_items) do
+        if it.label == label then return it.name end
+    end
+    return label
+end
+
+local function set_sound(label, on)
+    if sound_on[label] == nil then return end
+    sound_on[label] = on and true or false
+    reconcile()
+    save_state()
+    if state.visible then
+        render()
+    else
+        mp.osd_message(name_for(label) .. ": " .. (sound_on[label] and "ON" or "OFF"))
+    end
+end
+
+local function toggle_sound(label)
+    set_sound(label, not sound_on[label])
+end
+
+-- Restore this folder's saved choices when a new file loads.
+local function load_state()
+    local dir = current_dir()
+    local entry = dir and read_store()[dir] or nil
+    sound_on.dynaudnorm = entry ~= nil and entry.dynaudnorm == true
+    sound_on.dialog     = entry ~= nil and entry.dialog == true
+    msg.debug("load_state: dir=" .. tostring(dir)
+        .. " dynaudnorm=" .. tostring(sound_on.dynaudnorm)
+        .. " dialog=" .. tostring(sound_on.dialog))
+    reconcile()
+    render()
 end
 
 -- ── Navigation ──────────────────────────────────────────────────────
@@ -492,8 +596,7 @@ local function activate()
         local item = sound_items[state.sound_idx]
         if not item then return end
         msg.info("activate: toggle sound item " .. item.name)
-        mp.commandv("af", "toggle", item.filter)
-        render()
+        toggle_sound(item.label)
         return
     end
 
@@ -588,4 +691,12 @@ end)
 -- ── Register ────────────────────────────────────────────────────────
 
 mp.add_key_binding("tab", "toggle", toggle_menu)
+
+-- `n` (input.conf) and any external caller toggle sound filters through here,
+-- so limiter ordering and per-folder persistence stay correct.
+mp.register_script_message("track-menu-toggle-sound", toggle_sound)
+
+-- Restore this folder's saved sound choices when a new file loads.
+mp.register_event("file-loaded", load_state)
+
 msg.info("track-menu.lua: binding registered")

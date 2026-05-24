@@ -45,10 +45,10 @@ When the authored DRC isn't enough (or isn't present), toggle FFmpeg's `dynaudno
 - The **Sound** column of the track menu (`TAB`).
 
 ```ini
-n af toggle @dynaudnorm:dynaudnorm=f=500:g=31:p=0.9:m=4:s=0
+n script-message track-menu-toggle-sound dynaudnorm
 ```
 
-Tuning: `f` frame ms, `g` Gaussian window (odd), `p` target peak, `m` max gain cap, `s` compression strength.
+The filter spec (and its tuning) lives in `scripts/track-menu.lua` (`SPECS.dynaudnorm = "...dynaudnorm=f=500:g=31:p=0.9:m=4:s=0"`): `f` frame ms, `g` Gaussian window (odd), `p` target peak, `m` max gain cap, `s` compression strength.
 
 ### 3. Dialogue boost — `dialoguenhance`
 
@@ -56,7 +56,11 @@ When dialogue specifically is buried (often a side effect of a 5.1→stereo down
 
 ### The track menu's "Sound" column
 
-`TAB` opens the track menu; `→` past **Audio** and **Subtitles** reaches **Sound**, holding **Night mode** and **Dialogue boost** as on/off toggles (`enter` flips, `●` marks active). Their state is read from mpv's live filter chain, so the menu and the `n` key never disagree.
+`TAB` opens the track menu; `→` past **Audio** and **Subtitles** reaches **Sound**, holding **Night mode** and **Dialogue boost** as on/off toggles (`enter` flips, `●` marks active). The script owns these filters, so the menu and the `n` key are the *same* toggle — they never disagree.
+
+**Remembered per folder.** Choices are saved to `~/.local/state/mpv/sound-toggles.json`, keyed by the file's folder, and restored automatically on load. Set night mode once for a season folder and every episode inherits it; a film in an unconfigured folder starts clean.
+
+**Auto limiter.** Whenever any sound toggle is on, a transparent true-peak limiter (`alimiter`) is appended **last** in the chain to catch clipping from the boosts, and removed when everything is off. It's automatic — not a menu item, not persisted.
 
 These toggles apply instantly during playback. One caveat: flipping them *while paused* can reset the other sound toggle (mpv can't rebuild the audio filter chain without a live stream) — toggle while playing, which is the normal case since the menu doesn't pause the film.
 
