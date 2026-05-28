@@ -1,6 +1,6 @@
 # mpv Configuration
 
-Media Centarr-authored mpv configuration and Lua scripts. These are the app's **source of truth** — mpv reads them from `~/.config/mpv/` at runtime, so you install by copying:
+Media Centaur-authored mpv configuration and Lua scripts. These are the app's **source of truth** — mpv reads them from `~/.config/mpv/` at runtime, so you install by copying:
 
 ```bash
 cp mpv.conf ~/.config/mpv/mpv.conf
@@ -28,5 +28,5 @@ After editing any file here, re-copy the changed ones to your runtime config. Th
 
 Internal docs live in the main app repo:
 
-- [`media-centarr/docs/mpv.md`](https://github.com/media-centarr/media-centarr/blob/main/docs/mpv.md) — user-facing + implementation details for each script.
-- [`media-centarr/.claude/skills/mpv-extensions/SKILL.md`](https://github.com/media-centarr/media-centarr/blob/main/.claude/skills/mpv-extensions/SKILL.md) — conventions for authoring new scripts.
+- [`media-centaur/docs/mpv.md`](https://github.com/media-centaur/media-centaur/blob/main/docs/mpv.md) — user-facing + implementation details for each script.
+- [`media-centaur/.claude/skills/mpv-extensions/SKILL.md`](https://github.com/media-centaur/media-centaur/blob/main/.claude/skills/mpv-extensions/SKILL.md) — conventions for authoring new scripts.
