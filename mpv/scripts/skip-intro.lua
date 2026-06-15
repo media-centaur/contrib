@@ -49,6 +49,9 @@ local state = {
     fade_target = 0,       -- target fade level
     fade_timer  = nil,     -- periodic timer for fade animation
     delay_timer = nil,     -- one-shot timer for initial delay
+    rect        = nil,     -- last-rendered pill bounds {x1,y1,x2,y2} for hit-testing
+    hover       = false,   -- cursor is currently over the pill
+    mouse_bound = false,   -- MBTN_LEFT forced binding is active (only while hovering)
 }
 
 local bindings = {}
@@ -136,10 +139,16 @@ local function render()
     local py = h - pill_h - margin_b
     local center_y = py + pill_h / 2
 
+    -- Record bounds so the mouse observer can hit-test clicks/hover
+    state.rect = { x1 = px, y1 = py, x2 = px + pill_w, y2 = py + pill_h }
+
     -- Fade-adjusted alphas
     local bg_a = faded(cfg.bg_alpha)
-    local border_a = faded(cfg.border_alpha)
     local text_a = faded("00")
+
+    -- Hover brightens the border to the accent color for a clickable affordance
+    local border_c = state.hover and cfg.header_color or cfg.border_color
+    local border_a = state.hover and faded("00") or faded(cfg.border_alpha)
 
     local ass = assdraw.ass_new()
 
@@ -158,7 +167,7 @@ local function render()
     ass:pos(0, 0)
     ass:append("{\\an7\\bord" .. border_w .. "\\shad0" ..
         "\\1a&HFF&" ..
-        ass_border_color(cfg.border_color) .. ass_border_alpha(border_a) ..
+        ass_border_color(border_c) .. ass_border_alpha(border_a) ..
         "\\p1}")
     ass:draw_start()
     ass:round_rect_cw(px, py, px + pill_w, py + pill_h, corner_r)
@@ -210,6 +219,38 @@ local function skip()
     mp.commandv("seek", tostring(state.skip_time), "absolute")
 end
 
+-- ── Mouse Interaction ───────────────────────────────────────────────
+-- The pill is clickable. To avoid swallowing clicks meant for the OSC /
+-- seek bar, MBTN_LEFT is only captured while the cursor is over the pill
+-- (gated by the mouse-pos observer below) — same pattern mpv's own OSC uses.
+
+local function point_in_rect(x, y, r)
+    return r and x and y and x >= r.x1 and x <= r.x2 and y >= r.y1 and y <= r.y2
+end
+
+local function bind_click()
+    if state.mouse_bound then return end
+    state.mouse_bound = true
+    mp.add_forced_key_binding("MBTN_LEFT", "skip-intro-click", skip)
+    msg.trace("bind_click: MBTN_LEFT captured")
+end
+
+local function unbind_click()
+    if not state.mouse_bound then return end
+    state.mouse_bound = false
+    mp.remove_key_binding("skip-intro-click")
+    msg.trace("unbind_click: MBTN_LEFT released")
+end
+
+local function on_mouse_move(_, pos)
+    local inside = state.visible and point_in_rect(pos and pos.x, pos and pos.y, state.rect)
+    if inside == state.hover then return end
+
+    state.hover = inside
+    if inside then bind_click() else unbind_click() end
+    render()  -- repaint border in hover/non-hover style
+end
+
 -- ── Overlay Cleanup ────────────────────────────────────────────────
 
 local function cleanup_overlay()
@@ -218,7 +259,10 @@ local function cleanup_overlay()
     state.skip_time = nil
     state.fade = 0
     state.fade_target = 0
+    state.rect = nil
+    state.hover = false
 
+    unbind_click()
     for _, name in ipairs(bindings) do
         mp.remove_key_binding(name)
     end
@@ -353,6 +397,9 @@ end)
 mp.observe_property("osd-height", "number", function()
     if state.visible then render() end
 end)
+
+-- ── Track cursor for clickable pill (hover + click hit-testing) ────
+mp.observe_property("mouse-pos", "native", on_mouse_move)
 
 -- ── Cleanup on file end ────────────────────────────────────────────
 
