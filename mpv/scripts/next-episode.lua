@@ -6,8 +6,8 @@
 -- content automatically.
 --
 -- In the final seconds of the file the pill switches to countdown mode —
--- "Next episode in Ns" with a draining bar — regardless of chapters, so
--- auto-play never lands unannounced. ESC cancels: the queued entry is
+-- "Next episode in Ns" — regardless of chapters, so auto-play never
+-- lands unannounced. ESC cancels: the queued entry is
 -- removed and `user-data/media-centaur/auto-advance-cancelled` is set,
 -- which the backend observes to stop re-appending (its queue check is
 -- otherwise self-stabilizing).
@@ -23,13 +23,13 @@ msg.info("next-episode.lua loaded")
 -- Base sizes at 1080p — all scaled by osd_height / 1080 at render time
 local cfg = {
     pill_w        = 330,
-    countdown_w   = 520,   -- wider pill for "Next episode in 30s" + hints
+    countdown_w   = 380,   -- countdown pill: sized to its content, same
+                           -- density as skip-intro's 300 — no dead middle
     pill_h        = 56,
     margin_right  = 48,
     margin_bottom = 120,   -- clears the default OSC bar
     corner_r      = 8,
     border_width  = 2,
-    bar_h         = 5,     -- countdown draining bar
     label_size    = 30,
     hint_size     = 22,
     -- Colors (ASS BGR format) — matches track-menu.lua / skip-intro.lua
@@ -43,7 +43,7 @@ local cfg = {
     delay         = 1.0,       -- seconds after chapter change before showing (skip mode)
     fade_in       = 0.3,       -- fade-in duration in seconds
     fade_out      = 0.2,       -- fade-out duration in seconds
-    countdown_window = 30,     -- seconds before EOF the countdown mode begins
+    countdown_window = 20,     -- seconds before EOF the countdown mode begins
     -- A credits chapter must start at or after this fraction of the
     -- runtime — mirrors the backend's ChapterCompletion floor, and keeps
     -- an "Opening Credits" chapter at t=0 from triggering the pill.
@@ -226,8 +226,9 @@ local function render()
     local gap = math.floor(10 * scale)
 
     if countdown then
-        -- Layout: [ ENTER  Next episode in 12s          ESC Cancel ]
-        --         [═══════════ draining bar ═══════════           ]
+        -- Layout: [ ENTER  Next episode in 12s  ESC Cancel ]
+        -- Same single-row density as skip-intro — no bar, no dead space;
+        -- the ticking seconds are the countdown.
         local seconds = math.max(1, math.ceil(state.remaining or 0))
 
         -- "ENTER" hint (dim, small)
@@ -252,25 +253,6 @@ local function render()
         ass:append("{\\an6\\bord0\\shad0\\fs" .. hint_sz ..
             "\\fnsans-serif" ..
             ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ESC Cancel")
-
-        -- Draining bar along the pill's bottom edge: width tracks the
-        -- remaining fraction of the countdown window.
-        local bar_h = math.max(2, math.floor(cfg.bar_h * scale))
-        local inset = math.max(2, math.floor(2 * scale))
-        local bar_x1 = px + inset
-        local bar_y2 = py + pill_h - inset
-        local bar_y1 = bar_y2 - bar_h
-        local full_w = pill_w - 2 * inset
-        local fraction = math.min(1, math.max(0, (state.remaining or 0) / cfg.countdown_window))
-
-        ass:new_event()
-        ass:pos(0, 0)
-        ass:append("{\\an7\\bord0\\shad0" ..
-            ass_color(cfg.header_color) .. ass_alpha(text_a) ..
-            "\\p1}")
-        ass:draw_start()
-        ass:round_rect_cw(bar_x1, bar_y1, bar_x1 + math.floor(full_w * fraction), bar_y2, bar_h / 2)
-        ass:draw_stop()
     else
         -- Layout: [  ENTER   Next Episode  ▶▶  ]
 
