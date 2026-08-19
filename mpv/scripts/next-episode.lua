@@ -7,10 +7,9 @@
 --
 -- In the final seconds of the file the pill switches to countdown mode —
 -- "Next episode in Ns" — regardless of chapters, so auto-play never
--- lands unannounced. ESC cancels: the queued entry is
--- removed and `user-data/media-centaur/auto-advance-cancelled` is set,
--- which the backend observes to stop re-appending (its queue check is
--- otherwise self-stabilizing).
+-- lands unannounced. Declining needs no dedicated affordance: quitting
+-- the player (ESC / the remote's back button, as ever) ends the session,
+-- queued successor and all.
 --
 -- Logging: run mpv with --msg-level=next_episode=trace to see all debug output
 
@@ -23,8 +22,6 @@ msg.info("next-episode.lua loaded")
 -- Base sizes at 1080p — all scaled by osd_height / 1080 at render time
 local cfg = {
     pill_w        = 330,
-    countdown_w   = 380,   -- countdown pill: sized to its content, same
-                           -- density as skip-intro's 300 — no dead middle
     pill_h        = 56,
     margin_right  = 48,
     margin_bottom = 120,   -- clears the default OSC bar
@@ -64,7 +61,6 @@ local credits_patterns = {
 local state = {
     visible     = false,
     mode        = nil,     -- "skip" (credits pill) | "countdown" (final seconds)
-    cancelled   = false,   -- viewer cancelled auto-advance — pill stays away
     remaining   = nil,     -- last observed time-remaining (seconds)
     last_second = nil,     -- last rendered whole second (repaint throttle)
     overlay     = nil,
@@ -174,7 +170,7 @@ local function render()
     local countdown = state.mode == "countdown"
 
     local scale = h / 1080
-    local pill_w    = math.floor((countdown and cfg.countdown_w or cfg.pill_w) * scale)
+    local pill_w    = math.floor(cfg.pill_w * scale)
     local pill_h    = math.floor(cfg.pill_h * scale)
     local margin_r  = math.floor(cfg.margin_right * scale)
     local margin_b  = math.floor(cfg.margin_bottom * scale)
@@ -226,9 +222,10 @@ local function render()
     local gap = math.floor(10 * scale)
 
     if countdown then
-        -- Layout: [ ENTER  Next episode in 12s  ESC Cancel ]
-        -- Same single-row density as skip-intro — no bar, no dead space;
-        -- the ticking seconds are the countdown.
+        -- Layout: [ ENTER  Next episode in 12s ]
+        -- Same single-row density as skip-intro; the ticking seconds are
+        -- the countdown. No decline affordance — quitting the player is
+        -- the decline, same as it ever was.
         local seconds = math.max(1, math.ceil(state.remaining or 0))
 
         -- "ENTER" hint (dim, small)
@@ -246,13 +243,6 @@ local function render()
             "\\fnsans-serif\\b1" ..
             ass_color(cfg.bright_color) .. ass_alpha(text_a) ..
             "}Next episode in " .. seconds .. "s")
-
-        -- "ESC Cancel" hint (dim, right-aligned)
-        ass:new_event()
-        ass:pos(px + pill_w - pad, center_y)
-        ass:append("{\\an6\\bord0\\shad0\\fs" .. hint_sz ..
-            "\\fnsans-serif" ..
-            ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ESC Cancel")
     else
         -- Layout: [  ENTER   Next Episode  ▶▶  ]
 
@@ -297,23 +287,6 @@ local function advance()
     if not state.visible then return end
     msg.info("advance: playlist-next")
     mp.commandv("playlist-next")
-end
-
--- Cancel auto-advance: drop the queued successor and tell the backend so
--- its self-stabilizing queue check doesn't append it right back
--- (MpvSession observes the user-data property and sets chain_cancelled).
-local function cancel()
-    if not state.visible or state.mode ~= "countdown" then return end
-
-    local count = mp.get_property_number("playlist-count", 1)
-    if count > 1 then
-        msg.info("cancel: removing queued playlist entry " .. (count - 1))
-        mp.commandv("playlist-remove", tostring(count - 1))
-    end
-
-    mp.set_property_native("user-data/media-centaur/auto-advance-cancelled", true)
-    state.cancelled = true
-    -- The ESC binding hides the pill right after cancelling
 end
 
 -- ── Mouse Interaction ───────────────────────────────────────────────
@@ -424,29 +397,12 @@ local function hide()
     animate_to(0)
 end
 
--- Countdown mode additionally captures ESC for cancel; skip mode only
--- ENTER. Rebound whenever the mode changes while visible.
-local function bind_for_mode()
-    for _, name in ipairs(bindings) do
-        mp.remove_key_binding(name)
-    end
-    bindings = {}
-
-    bind("enter", "next-episode-enter", advance)
-    if state.mode == "countdown" then
-        bind("ESC", "next-episode-cancel", function()
-            cancel()
-            hide()
-        end)
-    end
-end
-
 local function begin_show(mode)
     state.delay_timer = nil
     msg.info("show: next-episode pill (" .. mode .. ")")
     state.visible = true
     state.mode = mode
-    bind_for_mode()
+    bind("enter", "next-episode-enter", advance)
     animate_to(1)
 end
 
@@ -455,7 +411,6 @@ local function set_mode(mode)
         if state.mode ~= mode then
             msg.debug("set_mode: " .. tostring(state.mode) .. " → " .. mode)
             state.mode = mode
-            bind_for_mode()
             render()
         end
         cancel_delay()
@@ -491,11 +446,6 @@ end
 -- chapters or not, auto-play never lands unannounced.
 
 local function evaluate()
-    if state.cancelled then
-        hide()
-        return
-    end
-
     if not has_next_playlist_entry() then
         hide()
         return
@@ -537,8 +487,6 @@ end)
 mp.observe_property("mouse-pos", "native", on_mouse_move)
 
 -- ── Cleanup on file end ────────────────────────────────────────────
--- `cancelled` deliberately survives: after a cancel the playlist ends at
--- this file, and the backend's chain_cancelled is sticky for the session.
 
 mp.register_event("end-file", function()
     msg.trace("end-file: cleaning up")
