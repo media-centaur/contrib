@@ -1,9 +1,16 @@
--- next-episode.lua — Chapter-based "Next Episode" button overlay
+-- next-episode.lua — Chapter-based "Next Episode" button + auto-play countdown
 -- Shows a "Next Episode" pill during a credits/outro chapter when the
 -- playlist has a queued successor (Media Centaur appends it — ADR-062).
 -- ENTER or a click advances with playlist-next; end-of-file advances on
 -- its own, so the pill only ever *shortens* the credits, never skips
 -- content automatically.
+--
+-- In the final seconds of the file the pill switches to countdown mode —
+-- "Next episode in Ns" with a draining bar — regardless of chapters, so
+-- auto-play never lands unannounced. ESC cancels: the queued entry is
+-- removed and `user-data/media-centaur/auto-advance-cancelled` is set,
+-- which the backend observes to stop re-appending (its queue check is
+-- otherwise self-stabilizing).
 --
 -- Logging: run mpv with --msg-level=next_episode=trace to see all debug output
 
@@ -16,24 +23,27 @@ msg.info("next-episode.lua loaded")
 -- Base sizes at 1080p — all scaled by osd_height / 1080 at render time
 local cfg = {
     pill_w        = 330,
+    countdown_w   = 520,   -- wider pill for "Next episode in 30s" + hints
     pill_h        = 56,
     margin_right  = 48,
     margin_bottom = 120,   -- clears the default OSC bar
     corner_r      = 8,
     border_width  = 2,
+    bar_h         = 5,     -- countdown draining bar
     label_size    = 30,
     hint_size     = 22,
     -- Colors (ASS BGR format) — matches track-menu.lua / skip-intro.lua
     bg_color      = "40302A",  bg_alpha      = "00",  -- fully opaque
     text_color    = "ECE8E8",                          -- normal text
     bright_color  = "FFFFFF",                          -- label text
-    header_color  = "FF9F4B",                          -- accent (arrow)
+    header_color  = "FF9F4B",                          -- accent (arrow, bar)
     border_color  = "ECE8E8",  border_alpha  = "40",  -- ~75% opaque
     dim_color     = "808080",                          -- key hint text
     -- Timing
-    delay         = 1.0,       -- seconds after chapter change before showing
+    delay         = 1.0,       -- seconds after chapter change before showing (skip mode)
     fade_in       = 0.3,       -- fade-in duration in seconds
     fade_out      = 0.2,       -- fade-out duration in seconds
+    countdown_window = 30,     -- seconds before EOF the countdown mode begins
     -- A credits chapter must start at or after this fraction of the
     -- runtime — mirrors the backend's ChapterCompletion floor, and keeps
     -- an "Opening Credits" chapter at t=0 from triggering the pill.
@@ -53,6 +63,10 @@ local credits_patterns = {
 -- ── State ───────────────────────────────────────────────────────────
 local state = {
     visible     = false,
+    mode        = nil,     -- "skip" (credits pill) | "countdown" (final seconds)
+    cancelled   = false,   -- viewer cancelled auto-advance — pill stays away
+    remaining   = nil,     -- last observed time-remaining (seconds)
+    last_second = nil,     -- last rendered whole second (repaint throttle)
     overlay     = nil,
     fade        = 0,       -- current fade level (0 = invisible, 1 = fully visible)
     fade_target = 0,       -- target fade level
@@ -134,10 +148,20 @@ local function in_credits_chapter()
     return true
 end
 
+-- The countdown window is open: a successor is queued and the file ends
+-- within cfg.countdown_window seconds. Pausing pauses the countdown too —
+-- honest, since the advance happens at EOF and EOF isn't approaching.
+local function in_countdown_window()
+    return state.remaining ~= nil
+        and state.remaining > 0
+        and state.remaining <= cfg.countdown_window
+end
+
 -- ── Render ──────────────────────────────────────────────────────────
 
 local function render()
-    msg.trace("render: called, visible=" .. tostring(state.visible) .. " fade=" .. string.format("%.2f", state.fade))
+    msg.trace("render: called, visible=" .. tostring(state.visible) ..
+        " mode=" .. tostring(state.mode) .. " fade=" .. string.format("%.2f", state.fade))
     if not state.visible or state.fade <= 0 then return end
 
     local w, h = mp.get_osd_size()
@@ -147,8 +171,10 @@ local function render()
         return
     end
 
+    local countdown = state.mode == "countdown"
+
     local scale = h / 1080
-    local pill_w    = math.floor(cfg.pill_w * scale)
+    local pill_w    = math.floor((countdown and cfg.countdown_w or cfg.pill_w) * scale)
     local pill_h    = math.floor(cfg.pill_h * scale)
     local margin_r  = math.floor(cfg.margin_right * scale)
     local margin_b  = math.floor(cfg.margin_bottom * scale)
@@ -196,32 +222,81 @@ local function render()
     ass:round_rect_cw(px, py, px + pill_w, py + pill_h, corner_r)
     ass:draw_stop()
 
-    -- Layout: [  ENTER   Next Episode  ▶▶  ]
     local pad = math.floor(16 * scale)
     local gap = math.floor(10 * scale)
 
-    -- "ENTER" hint (dim, small)
-    ass:new_event()
-    ass:pos(px + pad, center_y)
-    ass:append("{\\an4\\bord0\\shad0\\fs" .. hint_sz ..
-        "\\fnsans-serif" ..
-        ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ENTER")
+    if countdown then
+        -- Layout: [ ENTER  Next episode in 12s          ESC Cancel ]
+        --         [═══════════ draining bar ═══════════           ]
+        local seconds = math.max(1, math.ceil(state.remaining or 0))
 
-    -- "Next Episode" label (bright, bold)
-    local hint_width = math.floor(58 * scale)
-    ass:new_event()
-    ass:pos(px + pad + hint_width + gap, center_y)
-    ass:append("{\\an4\\bord0\\shad0\\fs" .. label_sz ..
-        "\\fnsans-serif\\b1" ..
-        ass_color(cfg.bright_color) .. ass_alpha(text_a) .. "}Next Episode")
+        -- "ENTER" hint (dim, small)
+        ass:new_event()
+        ass:pos(px + pad, center_y)
+        ass:append("{\\an4\\bord0\\shad0\\fs" .. hint_sz ..
+            "\\fnsans-serif" ..
+            ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ENTER")
 
-    -- "▶▶" arrow (accent color)
-    local arrow_pad = math.floor(14 * scale)
-    ass:new_event()
-    ass:pos(px + pill_w - pad - arrow_pad, center_y)
-    ass:append("{\\an6\\bord0\\shad0\\fs" .. label_sz ..
-        "\\fnsans-serif" ..
-        ass_color(cfg.header_color) .. ass_alpha(text_a) .. "}\226\150\182\226\150\182")
+        -- "Next episode in Ns" label (bright, bold)
+        local hint_width = math.floor(58 * scale)
+        ass:new_event()
+        ass:pos(px + pad + hint_width + gap, center_y)
+        ass:append("{\\an4\\bord0\\shad0\\fs" .. label_sz ..
+            "\\fnsans-serif\\b1" ..
+            ass_color(cfg.bright_color) .. ass_alpha(text_a) ..
+            "}Next episode in " .. seconds .. "s")
+
+        -- "ESC Cancel" hint (dim, right-aligned)
+        ass:new_event()
+        ass:pos(px + pill_w - pad, center_y)
+        ass:append("{\\an6\\bord0\\shad0\\fs" .. hint_sz ..
+            "\\fnsans-serif" ..
+            ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ESC Cancel")
+
+        -- Draining bar along the pill's bottom edge: width tracks the
+        -- remaining fraction of the countdown window.
+        local bar_h = math.max(2, math.floor(cfg.bar_h * scale))
+        local inset = math.max(2, math.floor(2 * scale))
+        local bar_x1 = px + inset
+        local bar_y2 = py + pill_h - inset
+        local bar_y1 = bar_y2 - bar_h
+        local full_w = pill_w - 2 * inset
+        local fraction = math.min(1, math.max(0, (state.remaining or 0) / cfg.countdown_window))
+
+        ass:new_event()
+        ass:pos(0, 0)
+        ass:append("{\\an7\\bord0\\shad0" ..
+            ass_color(cfg.header_color) .. ass_alpha(text_a) ..
+            "\\p1}")
+        ass:draw_start()
+        ass:round_rect_cw(bar_x1, bar_y1, bar_x1 + math.floor(full_w * fraction), bar_y2, bar_h / 2)
+        ass:draw_stop()
+    else
+        -- Layout: [  ENTER   Next Episode  ▶▶  ]
+
+        -- "ENTER" hint (dim, small)
+        ass:new_event()
+        ass:pos(px + pad, center_y)
+        ass:append("{\\an4\\bord0\\shad0\\fs" .. hint_sz ..
+            "\\fnsans-serif" ..
+            ass_color(cfg.dim_color) .. ass_alpha(text_a) .. "}ENTER")
+
+        -- "Next Episode" label (bright, bold)
+        local hint_width = math.floor(58 * scale)
+        ass:new_event()
+        ass:pos(px + pad + hint_width + gap, center_y)
+        ass:append("{\\an4\\bord0\\shad0\\fs" .. label_sz ..
+            "\\fnsans-serif\\b1" ..
+            ass_color(cfg.bright_color) .. ass_alpha(text_a) .. "}Next Episode")
+
+        -- "▶▶" arrow (accent color)
+        local arrow_pad = math.floor(14 * scale)
+        ass:new_event()
+        ass:pos(px + pill_w - pad - arrow_pad, center_y)
+        ass:append("{\\an6\\bord0\\shad0\\fs" .. label_sz ..
+            "\\fnsans-serif" ..
+            ass_color(cfg.header_color) .. ass_alpha(text_a) .. "}\226\150\182\226\150\182")
+    end
 
     -- Apply overlay
     if not state.overlay then
@@ -234,12 +309,29 @@ local function render()
     state.overlay:update()
 end
 
--- ── Advance Action ──────────────────────────────────────────────────
+-- ── Actions ─────────────────────────────────────────────────────────
 
 local function advance()
     if not state.visible then return end
     msg.info("advance: playlist-next")
     mp.commandv("playlist-next")
+end
+
+-- Cancel auto-advance: drop the queued successor and tell the backend so
+-- its self-stabilizing queue check doesn't append it right back
+-- (MpvSession observes the user-data property and sets chain_cancelled).
+local function cancel()
+    if not state.visible or state.mode ~= "countdown" then return end
+
+    local count = mp.get_property_number("playlist-count", 1)
+    if count > 1 then
+        msg.info("cancel: removing queued playlist entry " .. (count - 1))
+        mp.commandv("playlist-remove", tostring(count - 1))
+    end
+
+    mp.set_property_native("user-data/media-centaur/auto-advance-cancelled", true)
+    state.cancelled = true
+    -- The ESC binding hides the pill right after cancelling
 end
 
 -- ── Mouse Interaction ───────────────────────────────────────────────
@@ -279,10 +371,12 @@ end
 local function cleanup_overlay()
     msg.debug("cleanup_overlay")
     state.visible = false
+    state.mode = nil
     state.fade = 0
     state.fade_target = 0
     state.rect = nil
     state.hover = false
+    state.last_second = nil
 
     unbind_click()
     for _, name in ipairs(bindings) do
@@ -341,31 +435,62 @@ local function bind(key, name, fn)
     mp.add_forced_key_binding(key, name, fn)
 end
 
-local function begin_show()
-    state.delay_timer = nil
-    msg.info("show: next-episode pill")
-    state.visible = true
-    bind("enter", "next-episode-enter", advance)
-    animate_to(1)
-end
-
-local function schedule_show()
-    cancel_delay()
-
-    if state.visible then
-        animate_to(1)
-        return
-    end
-
-    state.delay_timer = mp.add_timeout(cfg.delay, begin_show)
-    msg.debug("schedule_show: delay timer started (" .. cfg.delay .. "s)")
-end
-
 local function hide()
     cancel_delay()
     if not state.visible then return end
     msg.info("hide: fading out")
     animate_to(0)
+end
+
+-- Countdown mode additionally captures ESC for cancel; skip mode only
+-- ENTER. Rebound whenever the mode changes while visible.
+local function bind_for_mode()
+    for _, name in ipairs(bindings) do
+        mp.remove_key_binding(name)
+    end
+    bindings = {}
+
+    bind("enter", "next-episode-enter", advance)
+    if state.mode == "countdown" then
+        bind("ESC", "next-episode-cancel", function()
+            cancel()
+            hide()
+        end)
+    end
+end
+
+local function begin_show(mode)
+    state.delay_timer = nil
+    msg.info("show: next-episode pill (" .. mode .. ")")
+    state.visible = true
+    state.mode = mode
+    bind_for_mode()
+    animate_to(1)
+end
+
+local function set_mode(mode)
+    if state.visible then
+        if state.mode ~= mode then
+            msg.debug("set_mode: " .. tostring(state.mode) .. " → " .. mode)
+            state.mode = mode
+            bind_for_mode()
+            render()
+        end
+        cancel_delay()
+        animate_to(1)
+        return
+    end
+
+    if mode == "countdown" then
+        -- No courtesy delay when the file is about to end
+        cancel_delay()
+        begin_show(mode)
+        return
+    end
+
+    if state.delay_timer then return end
+    state.delay_timer = mp.add_timeout(cfg.delay, function() begin_show(mode) end)
+    msg.debug("set_mode: delay timer started (" .. cfg.delay .. "s)")
 end
 
 local function force_hide()
@@ -378,15 +503,42 @@ local function force_hide()
 end
 
 -- ── Evaluation ──────────────────────────────────────────────────────
--- Re-run on chapter changes AND playlist-count changes: the successor
--- is appended by the backend shortly after file load, so the queue can
--- (rarely) grow while the credits are already rolling.
+-- Re-run on chapter changes, playlist-count changes AND time-remaining
+-- ticks: the successor is appended by the backend shortly after file
+-- load, and the countdown window opens purely on remaining time —
+-- chapters or not, auto-play never lands unannounced.
 
 local function evaluate()
-    if in_credits_chapter() and has_next_playlist_entry() then
-        schedule_show()
+    if state.cancelled then
+        hide()
+        return
+    end
+
+    if not has_next_playlist_entry() then
+        hide()
+        return
+    end
+
+    if in_countdown_window() then
+        set_mode("countdown")
+    elseif in_credits_chapter() then
+        set_mode("skip")
     else
         hide()
+    end
+end
+
+local function on_time_remaining(_, remaining)
+    state.remaining = remaining
+    evaluate()
+
+    -- Repaint at whole-second granularity while the countdown shows
+    if state.visible and state.mode == "countdown" then
+        local second = remaining and math.ceil(remaining) or nil
+        if second ~= state.last_second then
+            state.last_second = second
+            render()
+        end
     end
 end
 
@@ -403,6 +555,8 @@ end)
 mp.observe_property("mouse-pos", "native", on_mouse_move)
 
 -- ── Cleanup on file end ────────────────────────────────────────────
+-- `cancelled` deliberately survives: after a cancel the playlist ends at
+-- this file, and the backend's chain_cancelled is sticky for the session.
 
 mp.register_event("end-file", function()
     msg.trace("end-file: cleaning up")
@@ -413,4 +567,5 @@ end)
 
 mp.observe_property("chapter", "number", evaluate)
 mp.observe_property("playlist-count", "number", evaluate)
-msg.info("next-episode.lua: chapter + playlist observers registered")
+mp.observe_property("time-remaining", "number", on_time_remaining)
+msg.info("next-episode.lua: chapter + playlist + time-remaining observers registered")
