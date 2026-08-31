@@ -10,10 +10,11 @@
 local msg = require("mp.msg")
 
 local cfg = {
-    -- Must mirror the monitor line in ~/.config/hypr/hyprland.conf so the
+    -- Lua expressions run via `hyprctl eval` (Hyprland Lua config manager).
+    -- sdr_monitor must mirror hl.monitor in ~/.config/hypr/hyprland.lua so the
     -- revert lands back on the compositor's steady state.
-    sdr_monitor = "HDMI-A-1,3840x2160@120,0x0,1.0",
-    hdr_monitor = "HDMI-A-1,3840x2160@120,0x0,1.0, bitdepth, 10, cm, hdr, sdrbrightness, 3.0, sdrsaturation, 1.0",
+    sdr_monitor = 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "0x0", scale = 1.0 })',
+    hdr_monitor = 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "0x0", scale = 1.0, bitdepth = 10, cm = "hdr", sdrbrightness = 3.0, sdrsaturation = 1.0 })',
 }
 
 local state = {
@@ -23,14 +24,14 @@ local state = {
 local function set_monitor(line)
     local res = mp.command_native({
         name = "subprocess",
-        args = { "hyprctl", "keyword", "monitor", line },
+        args = { "hyprctl", "eval", line },
         playback_only = false,
         capture_stdout = true,
     })
     if res and res.status == 0 then
         return true
     end
-    msg.warn("hyprctl keyword monitor failed: " .. ((res and res.stdout) or "no result"))
+    msg.warn("hyprctl eval hl.monitor failed: " .. ((res and res.stdout) or "no result"))
     return false
 end
 
