@@ -12,8 +12,10 @@ local msg = require("mp.msg")
 local cfg = {
     -- Lua expressions run via `hyprctl eval` (Hyprland Lua config manager).
     -- sdr_monitor must mirror hl.monitor in ~/.config/hypr/hyprland.lua so the
-    -- revert lands back on the compositor's steady state.
-    sdr_monitor = 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "0x0", scale = 1.0 })',
+    -- revert lands back on the compositor's steady state. hl.monitor merges:
+    -- omitted keys keep their current values, so every key hdr_monitor sets
+    -- must be explicitly reset here or the revert is a silent no-op.
+    sdr_monitor = 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "0x0", scale = 1.0, bitdepth = 8, cm = "auto", sdrbrightness = 1.0, sdrsaturation = 1.0 })',
     hdr_monitor = 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "0x0", scale = 1.0, bitdepth = 10, cm = "hdr", sdrbrightness = 3.0, sdrsaturation = 1.0 })',
 }
 
